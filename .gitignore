@@ -1,5 +1,7 @@
 __pycache__/
 *.pyc
 venv/
-media/*.db
+media/musiques/*
+media/jingles/*
+media/pubs/*
 !media/**/.gitkeep
