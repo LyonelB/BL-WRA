@@ -1,0 +1,17 @@
+[Unit]
+Description=BL-WRA - moteur de diffusion Liquidsoap
+After=network-online.target sound.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=radio
+Group=radio
+ExecStart=/usr/bin/liquidsoap /opt/radio/liquidsoap/radio.liq
+Restart=on-failure
+RestartSec=5
+# Adapter si votre distribution utilise un autre chemin pour liquidsoap :
+# which liquidsoap
+
+[Install]
+WantedBy=multi-user.target

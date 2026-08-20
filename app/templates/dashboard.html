@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}Tableau de bord{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <h1>Tableau de bord</h1>
+  <span class="pill {{ 'pill-ok' if liquidsoap_ok else 'pill-down' }}">
+    {{ "Liquidsoap connecte" if liquidsoap_ok else "Liquidsoap injoignable" }}
+  </span>
+</div>
+
+<section class="card now-playing-card">
+  <p class="eyebrow">A l'antenne</p>
+  <h2 id="np-title">{{ now_playing.title or "—" }}</h2>
+  <p id="np-artist" class="muted">{{ now_playing.artist or "" }}</p>
+  <span id="np-category" class="badge badge-{{ now_playing.category }}">{{ now_playing.category }}</span>
+
+  {% if settings.get('stream_url') %}
+  <audio controls preload="none" class="player" src="{{ settings.get('stream_url') }}"></audio>
+  {% else %}
+  <p class="hint">Renseignez l'URL du flux dans <a href="{{ url_for('settings.reglages') }}">Réglages</a> pour activer le lecteur ici.</p>
+  {% endif %}
+
+  <form method="post" action="{{ url_for('dashboard.skip') }}" class="inline-form">
+    <button type="submit" class="btn btn-secondary">Titre suivant ⏭</button>
+  </form>
+</section>
+
+<section class="stats-grid">
+  <div class="stat-tile">
+    <span class="stat-value">{{ counts.get('musique', {}).get('actifs', 0) }}</span>
+    <span class="stat-label">musiques actives</span>
+  </div>
+  <div class="stat-tile">
+    <span class="stat-value">{{ counts.get('jingle', {}).get('actifs', 0) }}</span>
+    <span class="stat-label">jingles actifs</span>
+  </div>
+  <div class="stat-tile">
+    <span class="stat-value">{{ counts.get('pub', {}).get('actifs', 0) }}</span>
+    <span class="stat-label">pubs actives</span>
+  </div>
+  <div class="stat-tile">
+    <span class="stat-value">{{ settings.get('jingle_every_n_titles', '—') }}</span>
+    <span class="stat-label">titres entre 2 jingles</span>
+  </div>
+  <div class="stat-tile">
+    <span class="stat-value">{{ active_pub_slots }}</span>
+    <span class="stat-label">créneaux pub actifs</span>
+  </div>
+</section>
+
+<section class="card">
+  <h2>Diffuse recemment</h2>
+  <table class="table">
+    <thead>
+      <tr><th>Heure</th><th>Type</th><th>Titre</th><th>Artiste</th></tr>
+    </thead>
+    <tbody>
+      {% for p in recent %}
+      <tr>
+        <td>{{ p.played_at[11:19] }}</td>
+        <td><span class="badge badge-{{ p.category }}">{{ p.category }}</span></td>
+        <td>{{ p.title or p.filename }}</td>
+        <td>{{ p.artist or "" }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="4" class="muted">Rien diffuse pour l'instant.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<script>
+  const evtSource = new EventSource("{{ url_for('dashboard.now_playing_stream') }}");
+  evtSource.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+    document.getElementById("np-title").textContent = data.title || "—";
+    document.getElementById("np-artist").textContent = data.artist || "";
+    const badge = document.getElementById("np-category");
+    badge.textContent = data.category;
+    badge.className = "badge badge-" + data.category;
+  };
+</script>
+{% endblock %}

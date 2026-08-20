@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}{{ station_name }}{% endblock %} — Admin</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <div class="layout">
+    <nav class="sidebar">
+      <div class="brand">
+        <span class="brand-dot"></span>
+        <span>{{ station_name }}</span>
+      </div>
+      <a href="{{ url_for('dashboard.index') }}" class="{{ 'active' if request.endpoint == 'dashboard.index' }}">Tableau de bord</a>
+      <a href="{{ url_for('library.bibliotheque') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('library.bibliotheque') }}">Bibliotheque</a>
+      <a href="{{ url_for('library.jingles') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('library.jingles') }}">Jingles</a>
+      <a href="{{ url_for('library.pubs') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('library.pubs') }}">Pubs</a>
+      <a href="{{ url_for('settings.reglages') }}" class="{{ 'active' if request.endpoint == 'settings.reglages' }}">Reglages</a>
+      <div class="sidebar-footer">
+        <a href="{{ url_for('auth.compte') }}" class="{{ 'active' if request.endpoint == 'auth.compte' }}">{{ session.get('username') }}</a>
+        <a href="{{ url_for('auth.logout') }}">Se deconnecter</a>
+      </div>
+    </nav>
+    <main class="content">
+      {% include "_flash.html" %}
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+</body>
+</html>

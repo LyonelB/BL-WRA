@@ -1,0 +1,59 @@
+"""
+Configuration centrale de l'appli web.
+
+Reprend le principe de bl-fmo (fm-monitor) : un seul fichier de config lu au
+demarrage, valeurs surchargeables par variables d'environnement pour ne pas
+avoir a toucher au code en prod.
+"""
+
+import os
+
+# Racine de l'appli (dossier app/)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Doit correspondre a "media_path" dans liquidsoap/radio.liq
+MEDIA_ROOT = os.environ.get("RADIO_MEDIA_ROOT", "/opt/radio/media")
+MUSIQUES_DIR = os.path.join(MEDIA_ROOT, "musiques")
+JINGLES_DIR = os.path.join(MEDIA_ROOT, "jingles")
+PUBS_DIR = os.path.join(MEDIA_ROOT, "pubs")
+
+# Base SQLite (catalogue, reglages, historique de diffusion, comptes)
+DB_PATH = os.environ.get("RADIO_DB_PATH", os.path.join(MEDIA_ROOT, "radio.db"))
+
+# Fichier lu par radio.liq au demarrage pour connaitre les serveurs Icecast
+# externes vers lesquels relayer le flux (voir /reglages, section "Diffusion
+# externe"). Un redemarrage de liquidsoap-radio est necessaire pour prendre
+# en compte un changement ici (pas de rechargement a chaud).
+RELAYS_JSON_PATH = os.environ.get("RADIO_RELAYS_JSON", "/opt/radio/liquidsoap/relays.json")
+
+# Cle de session Flask - a definir via variable d'environnement en prod
+SECRET_KEY = os.environ.get("RADIO_SECRET_KEY", "change-moi-en-production")
+
+# Petite API HTTP exposee par Liquidsoap (harbor), voir liquidsoap/radio.liq
+LIQUIDSOAP_API_URL = os.environ.get("LIQUIDSOAP_API_URL", "http://127.0.0.1:8001")
+
+# Jeton partage optionnel pour verifier que /api/liquidsoap/on_track vient
+# bien de notre script Liquidsoap (appel local uniquement par defaut, mais
+# ca ne coute rien de le proteger un minimum).
+WEBHOOK_TOKEN = os.environ.get("RADIO_WEBHOOK_TOKEN", "")
+
+# Extensions audio acceptees a l'upload
+ALLOWED_EXTENSIONS = {"mp3", "ogg", "flac", "wav", "m4a", "aac"}
+MAX_UPLOAD_MB = int(os.environ.get("RADIO_MAX_UPLOAD_MB", "100"))
+
+# Valeurs par defaut des reglages de rotation (modifiables ensuite depuis
+# l'interface web, stockees dans la table settings)
+DEFAULT_SETTINGS = {
+    # un jingle toutes les N musiques
+    "jingle_every_n_titles": "4",
+    # les pubs sont programmees a heure fixe, voir la table pub_slots et
+    # Reglages -> Pubs planifiees (plus de reglage d'intervalle ici)
+    # nombre de secondes de fondu enchaine entre les titres (info only,
+    # le crossfade reel est regle dans radio.liq)
+    "crossfade_seconds": "3",
+    # nom de la station affiche dans l'interface (modifiable depuis Reglages)
+    "station_name": "Ma Webradio",
+    # URL publique du flux Icecast, utilisee pour le lecteur audio integre
+    # (ex: http://192.168.1.123:8000/radio.mp3) - a renseigner depuis Reglages
+    "stream_url": "",
+}

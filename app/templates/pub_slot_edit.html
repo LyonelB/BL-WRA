@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Modifier — créneau pub{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <h1>Modifier le créneau</h1>
+</div>
+
+<section class="card" style="max-width: 420px;">
+  <form method="post" class="settings-form">
+    <label>Heure
+      <input type="time" name="time" value="{{ slot.time }}" required>
+    </label>
+    <label>Pubs à diffuser à ce créneau
+      <div class="checkbox-list">
+        {% for t in all_pubs %}
+        <label class="checkbox-list-item">
+          <input type="checkbox" name="track_ids" value="{{ t.id }}" {{ "checked" if t.id in assigned_ids else "" }}>
+          {{ t.title or t.filename }}
+        </label>
+        {% else %}
+        <p class="hint">Aucune pub active pour l'instant.</p>
+        {% endfor %}
+      </div>
+    </label>
+    <div class="row-actions" style="justify-content: flex-start; margin-top: 6px;">
+      <button type="submit" class="btn btn-primary">Enregistrer</button>
+      <a href="{{ url_for('settings.reglages') }}" class="btn btn-secondary">Annuler</a>
+    </div>
+  </form>
+</section>
+{% endblock %}

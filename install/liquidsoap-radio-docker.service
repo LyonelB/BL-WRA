@@ -1,0 +1,21 @@
+[Unit]
+Description=BL-WRA - moteur de diffusion Liquidsoap (Docker)
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=simple
+# Nettoie un eventuel conteneur laisse par un arret brutal precedent
+ExecStartPre=-/usr/bin/docker rm -f liquidsoap-radio
+ExecStart=/usr/bin/docker run --rm --name liquidsoap-radio \
+  --network host \
+  -v /opt/radio/media:/opt/radio/media:ro \
+  -v /opt/radio/liquidsoap:/opt/radio/liquidsoap:ro \
+  savonet/liquidsoap:v2.4.5 /opt/radio/liquidsoap/radio.liq
+ExecStop=/usr/bin/docker stop liquidsoap-radio
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

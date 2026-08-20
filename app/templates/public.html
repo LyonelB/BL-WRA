@@ -1,0 +1,30 @@
+{% extends "base_public.html" %}
+{% block title %}En direct{% endblock %}
+{% block content %}
+<div class="auth-screen">
+  <div class="auth-card public-card">
+    <div class="brand brand-center">
+      <span class="brand-dot"></span>
+      <span>{{ station_name }}</span>
+    </div>
+    <p class="eyebrow">A l'antenne en ce moment</p>
+    <h1 id="public-title">{{ now_playing.title or "—" }}</h1>
+    <p id="public-artist" class="muted">{{ now_playing.artist or "" }}</p>
+    <span id="public-category" class="badge badge-{{ now_playing.category }}">{{ now_playing.category }}</span>
+    {% if stream_url %}
+    <audio controls preload="none" class="player" src="{{ stream_url }}"></audio>
+    {% endif %}
+  </div>
+</div>
+<script>
+  const evtSource = new EventSource("/api/public/now-playing/stream");
+  evtSource.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+    document.getElementById("public-title").textContent = data.title || "—";
+    document.getElementById("public-artist").textContent = data.artist || "";
+    const badge = document.getElementById("public-category");
+    badge.textContent = data.category;
+    badge.className = "badge badge-" + data.category;
+  };
+</script>
+{% endblock %}

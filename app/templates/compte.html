@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Mon compte{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <h1>Mon compte</h1>
+</div>
+
+<section class="card" style="max-width: 420px;">
+  <h2>Changer le mot de passe</h2>
+  <form method="post" class="settings-form">
+    <label>Mot de passe actuel
+      <input type="password" name="current_password" required>
+    </label>
+    <label>Nouveau mot de passe
+      <input type="password" name="new_password" required minlength="8">
+    </label>
+    <label>Confirmer le nouveau mot de passe
+      <input type="password" name="confirm_password" required minlength="8">
+    </label>
+    <button type="submit" class="btn btn-primary">Mettre a jour</button>
+  </form>
+</section>
+{% endblock %}

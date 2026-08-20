@@ -1,0 +1,20 @@
+{% extends "base_public.html" %}
+{% block title %}Connexion{% endblock %}
+{% block content %}
+<div class="auth-screen">
+  <form method="post" class="auth-card">
+    <div class="brand brand-center">
+      <span class="brand-dot"></span>
+      <span>{{ station_name }}</span>
+    </div>
+    <h1>Connexion</h1>
+    <label>Identifiant
+      <input type="text" name="username" autocomplete="username" required autofocus>
+    </label>
+    <label>Mot de passe
+      <input type="password" name="password" autocomplete="current-password" required>
+    </label>
+    <button type="submit" class="btn btn-primary btn-block">Se connecter</button>
+  </form>
+</div>
+{% endblock %}
