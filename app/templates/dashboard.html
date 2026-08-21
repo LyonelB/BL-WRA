@@ -39,10 +39,6 @@
   {% else %}
   <p class="hint">Renseignez l'URL du flux dans <a href="{{ url_for('settings.reglages') }}">Réglages</a> pour activer le lecteur ici.</p>
   {% endif %}
-
-  <form method="post" action="{{ url_for('dashboard.skip') }}" class="inline-form">
-    <button type="submit" class="btn btn-secondary">Titre suivant ⏭</button>
-  </form>
 </section>
 
 <section class="stats-grid">

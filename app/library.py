@@ -9,7 +9,18 @@ dossier (musiques/jingles/pubs) surveille par une playlist Liquidsoap.
 
 import os
 
-from flask import Blueprint, current_app, flash, jsonify, redirect, render_template, request, url_for
+from flask import (
+    Blueprint,
+    abort,
+    current_app,
+    flash,
+    jsonify,
+    redirect,
+    render_template,
+    request,
+    send_from_directory,
+    url_for,
+)
 
 import database
 import liquidsoap_client
@@ -121,6 +132,19 @@ def _edit_view(category, track_id):
         return redirect(url_for(f"library.{cfg['url']}"))
 
     return render_template("library_edit.html", track=track, cfg=cfg, category=category)
+
+
+@bp.route("/media/<category>/<path:filename>")
+@login_required
+def media_file(category, filename):
+    """Sert un fichier de la bibliotheque tel quel, pour la preecoute depuis
+    la page "Modifier" (voir library_edit.html). Reserve aux comptes
+    connectes, comme le reste de l'admin ; send_from_directory se charge de
+    refuser toute tentative de sortir du dossier de la categorie."""
+    cfg = CATEGORY_CONFIG.get(category)
+    if not cfg:
+        abort(404)
+    return send_from_directory(_dir_for(category), filename)
 
 
 def _play_now_view(category, track_id):

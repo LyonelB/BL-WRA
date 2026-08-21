@@ -8,6 +8,11 @@
 
 <section class="card" style="max-width: 420px;">
   <p class="hint">Fichier : {{ track.filename }}{% if track.duration %} · {{ track.duration | duree }}{% endif %}</p>
+
+  <label>Écouter
+    <audio controls preload="none" class="player" src="{{ url_for('library.media_file', category=category, filename=track.filename) }}"></audio>
+  </label>
+
   <form method="post" class="settings-form">
     <label>Titre
       <input type="text" name="title" value="{{ track.title or '' }}">
