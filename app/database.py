@@ -144,7 +144,11 @@ def _seed_defaults(app, db):
 
 
 def _now():
-    return datetime.utcnow().isoformat(timespec="seconds") + "Z"
+    # Heure locale (celle du serveur), pas UTC : coherente avec
+    # rotation.py/pub_slots.py qui comparent deja aux creneaux horaires
+    # avec datetime.now(), et avec l'affichage brut (played_at[11:19]) dans
+    # le tableau de bord, qui ne fait aucune conversion de fuseau.
+    return datetime.now().isoformat(timespec="seconds")
 
 
 # --------------------------------------------------------------------------
