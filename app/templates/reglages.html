@@ -12,6 +12,8 @@
 <section class="card">
   <h2>Rotation</h2>
   <form method="post" class="settings-form">
+    <input type="hidden" name="form_name" value="rotation">
+
     <label>Nom de la station
       <input type="text" name="station_name" value="{{ settings.get('station_name', '') }}">
     </label>
@@ -29,28 +31,34 @@
 
     <p class="hint">Mettre 0 desactive l'insertion automatique de jingle (vous pouvez toujours en declencher un manuellement avec « Jouer maintenant »). Les pubs, elles, sont programmees a heure fixe ci-dessous.</p>
 
-    <h2 style="margin-top: 22px;">Traitement audio</h2>
-    <p class="hint">Traitements appliques par Liquidsoap sur l'ensemble du flux. Voir le detail dans <code>liquidsoap/radio.liq</code>.</p>
+    <button type="submit" class="btn btn-primary">Enregistrer</button>
+  </form>
+</section>
 
-    <div class="checkbox-list">
-      <label class="checkbox-list-item">
-        <input type="checkbox" name="audio_crossfade_enabled" {{ "checked" if settings.get("audio_crossfade_enabled") == "1" else "" }}>
-        Enchainement avec fondu (fade in / fade out) entre les titres
-      </label>
-      <p class="hint" style="margin-left: 26px;">Necessite un redemarrage de Liquidsoap pour s'appliquer : <code>sudo systemctl restart liquidsoap-radio</code> apres avoir enregistre.</p>
+<section class="card">
+  <h2>Traitement audio</h2>
+  <p class="hint">Traitements appliques par Liquidsoap sur l'ensemble du flux. Voir le detail dans <code>liquidsoap/radio.liq</code>.</p>
 
-      <label class="checkbox-list-item">
-        <input type="checkbox" name="audio_normalize_enabled" {{ "checked" if settings.get("audio_normalize_enabled") == "1" else "" }}>
-        Normalisation de volume + compression/limiteur
-      </label>
-      <p class="hint" style="margin-left: 26px;">Egalise le niveau sonore entre les fichiers et absorbe les pics. Applique des l'enregistrement, sans redemarrage.</p>
+  <form method="post" class="settings-form">
+    <input type="hidden" name="form_name" value="audio_fx">
 
-      <label class="checkbox-list-item">
-        <input type="checkbox" name="audio_blank_removal_enabled" {{ "checked" if settings.get("audio_blank_removal_enabled") == "1" else "" }}>
-        Detection et suppression des blancs (silences) dans les musiques
-      </label>
-      <p class="hint" style="margin-left: 26px;">Coupe les silences de plus de 4 secondes dans la bibliotheque de musiques (pas les jingles/pubs). Applique des l'enregistrement, sans redemarrage.</p>
-    </div>
+    <label class="checkbox-list-item">
+      <input type="checkbox" name="audio_crossfade_enabled" {{ "checked" if settings.get("audio_crossfade_enabled") == "1" else "" }}>
+      Enchainement avec fondu (fade in / fade out) entre les titres
+    </label>
+    <p class="hint">Necessite un redemarrage de Liquidsoap pour s'appliquer : <code>sudo systemctl restart liquidsoap-radio</code> apres avoir enregistre.</p>
+
+    <label class="checkbox-list-item">
+      <input type="checkbox" name="audio_normalize_enabled" {{ "checked" if settings.get("audio_normalize_enabled") == "1" else "" }}>
+      Normalisation de volume + compression/limiteur
+    </label>
+    <p class="hint">Egalise le niveau sonore entre les fichiers et absorbe les pics. Applique des l'enregistrement, sans redemarrage.</p>
+
+    <label class="checkbox-list-item">
+      <input type="checkbox" name="audio_blank_removal_enabled" {{ "checked" if settings.get("audio_blank_removal_enabled") == "1" else "" }}>
+      Detection et suppression des blancs (silences) dans les musiques
+    </label>
+    <p class="hint">Coupe les silences de plus de 4 secondes dans la bibliotheque de musiques (pas les jingles/pubs). Applique des l'enregistrement, sans redemarrage.</p>
 
     <button type="submit" class="btn btn-primary">Enregistrer</button>
   </form>
