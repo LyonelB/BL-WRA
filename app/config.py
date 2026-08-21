@@ -26,6 +26,14 @@ DB_PATH = os.environ.get("RADIO_DB_PATH", os.path.join(MEDIA_ROOT, "radio.db"))
 # en compte un changement ici (pas de rechargement a chaud).
 RELAYS_JSON_PATH = os.environ.get("RADIO_RELAYS_JSON", "/opt/radio/liquidsoap/relays.json")
 
+# Fichier lu par radio.liq au demarrage pour l'etat initial des 3 bascules de
+# traitement audio (voir /reglages, section "Traitement audio"). normalize
+# et blank_removal sont aussi bascules a chaud via l'API harbor /audio-fx ;
+# ce fichier ne sert alors qu'a retrouver le dernier etat choisi si
+# Liquidsoap redemarre independamment. crossfade, lui, n'est relu qu'au
+# demarrage (necessite systemctl restart liquidsoap-radio pour s'appliquer).
+AUDIO_FX_JSON_PATH = os.environ.get("RADIO_AUDIO_FX_JSON", "/opt/radio/liquidsoap/audio_fx.json")
+
 # Cle de session Flask - a definir via variable d'environnement en prod
 SECRET_KEY = os.environ.get("RADIO_SECRET_KEY", "change-moi-en-production")
 
@@ -56,4 +64,11 @@ DEFAULT_SETTINGS = {
     # URL publique du flux Icecast, utilisee pour le lecteur audio integre
     # (ex: http://192.168.1.123:8000/radio.mp3) - a renseigner depuis Reglages
     "stream_url": "",
+    # Traitement audio optionnel (voir liquidsoap/radio.liq), bascules
+    # individuelles depuis Reglages -> Traitement audio.
+    # "1"/"0" plutot que bool : coherent avec le reste de la table settings
+    # (cle/valeur texte, cf. database.set_setting).
+    "audio_normalize_enabled": "0",
+    "audio_crossfade_enabled": "1",
+    "audio_blank_removal_enabled": "0",
 }

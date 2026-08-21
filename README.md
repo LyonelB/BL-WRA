@@ -140,6 +140,34 @@ Vous pouvez toujours forcer un jingle ou une pub précis immédiatement avec
 le bouton **« Jouer maintenant »** dans les onglets Jingles/Pubs, sans
 attendre le prochain déclenchement automatique.
 
+## Traitement audio
+
+Toujours depuis "Réglages", trois traitements optionnels appliqués par
+Liquidsoap sur l'ensemble du flux, chacun activable/désactivable
+indépendamment :
+
+- **Enchaînement avec fondu (fade in / fade out)** — plutôt qu'un
+  enchaînement sec entre les titres. Historiquement toujours actif ; c'est
+  le seul des trois réglages qui **nécessite un redémarrage de Liquidsoap**
+  pour s'appliquer (`sudo systemctl restart liquidsoap-radio`) : le fondu
+  enchaîné a besoin de mettre en place son propre système de bufferisation
+  au démarrage du flux, il ne peut pas être basculé à la volée.
+- **Normalisation de volume + compression/limiteur** — égalise le niveau
+  sonore moyen entre les fichiers uploadés (normalisation), puis absorbe les
+  pics restants (compression à ratio élevé, en pratique un limiteur).
+  S'applique dès l'enregistrement, sans redémarrage.
+- **Détection et suppression des blancs** — coupe les silences de plus de 4
+  secondes à l'intérieur des musiques (pas les jingles/pubs, généralement
+  déjà propres). S'applique dès l'enregistrement, sans redémarrage.
+
+Les deux derniers prennent effet au prochain changement de titre (l'appli
+web pousse l'état vers l'API locale de Liquidsoap) ; ils sont aussi
+sauvegardés dans `liquidsoap/audio_fx.json` (côté serveur, hors dépôt) afin
+que Liquidsoap retrouve le bon état s'il redémarre indépendamment de l'appli
+web. Les réglages fins (seuils, ratio, durée du fondu...) ne sont pas
+exposés dans l'interface ; ajustez-les directement dans `radio.liq` si
+besoin (section "Traitement audio optionnel").
+
 ## Sécurité — à faire avant mise en production
 
 - Changez le mot de passe admin par défaut (`admin` / `changeme`).

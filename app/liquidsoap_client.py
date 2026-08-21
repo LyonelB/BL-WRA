@@ -7,11 +7,26 @@ Volontairement tres simple : Liquidsoap tourne sur la meme machine, on
 n'a pas besoin d'un vrai client telnet, quelques requetes HTTP suffisent.
 """
 
+import json
 import logging
+import os
 
 import requests
 
 log = logging.getLogger("liquidsoap_client")
+
+# Correspondance entre les cles de la table settings (BDD) et le nom du
+# traitement audio tel que connu de radio.liq / de l'API harbor /audio-fx.
+AUDIO_FX_SETTINGS = {
+    "audio_normalize_enabled": "normalize",
+    "audio_crossfade_enabled": "crossfade",
+    "audio_blank_removal_enabled": "blank_removal",
+}
+
+# Parmi ces 3 traitements, seuls ceux-la sont bascultables a chaud via l'API
+# harbor (voir le commentaire "Traitement audio optionnel" dans radio.liq) :
+# crossfade necessite un redemarrage de liquidsoap-radio.
+LIVE_TOGGLABLE_AUDIO_FX = {"normalize", "blank_removal"}
 
 
 class LiquidsoapUnavailable(Exception):
@@ -52,3 +67,50 @@ def ping(base_url):
         return _get(base_url, "/ping", timeout=1.5)
     except LiquidsoapUnavailable:
         return None
+
+
+def set_audio_fx(base_url, name, enabled):
+    """Active/desactive a chaud un traitement audio (normalize/blank_removal
+    uniquement, voir LIVE_TOGGLABLE_AUDIO_FX). Prend effet au prochain
+    changement de titre, sans redemarrer Liquidsoap.
+    """
+    params = {"name": name, "value": "true" if enabled else "false"}
+    return _get(base_url, "/audio-fx", params=params)
+
+
+def write_audio_fx_file(path, settings):
+    """Ecrit l'etat des 3 traitements audio dans le fichier JSON relu par
+    radio.liq au demarrage (voir AUDIO_FX_JSON_PATH dans config.py).
+
+    Necessaire meme pour normalize/blank_removal (bascultables a chaud) afin
+    que Liquidsoap retrouve le dernier etat choisi s'il redemarre
+    independamment de l'appli web (mise a jour, reboot...). Indispensable
+    pour crossfade, qui n'est relu qu'a ce moment-la.
+    """
+    payload = {
+        fx_name: str(settings.get(setting_key, "0")) in ("1", "true", "True")
+        for setting_key, fx_name in AUDIO_FX_SETTINGS.items()
+    }
+    tmp_path = f"{path}.tmp"
+    with open(tmp_path, "w", encoding="utf-8") as f:
+        json.dump(payload, f)
+    os.replace(tmp_path, path)
+
+
+def sync_audio_fx(base_url, settings):
+    """Repousse vers Liquidsoap, a chaud, les traitements audio qui le
+    permettent (normalize/blank_removal). Best-effort : renvoie la liste des
+    noms qui ont echoue (ex: Liquidsoap pas encore demarre) sans lever
+    d'exception - ecrire le fichier JSON (voir write_audio_fx_file) suffit a
+    ce qu'ils soient repris correctement au prochain demarrage.
+    """
+    failed = []
+    for setting_key, fx_name in AUDIO_FX_SETTINGS.items():
+        if fx_name not in LIVE_TOGGLABLE_AUDIO_FX:
+            continue
+        enabled = str(settings.get(setting_key, "0")) in ("1", "true", "True")
+        try:
+            set_audio_fx(base_url, fx_name, enabled)
+        except LiquidsoapUnavailable:
+            failed.append(fx_name)
+    return failed
