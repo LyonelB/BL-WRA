@@ -23,10 +23,13 @@ AUDIO_FX_SETTINGS = {
     "audio_blank_removal_enabled": "blank_removal",
 }
 
-# Parmi ces 3 traitements, seuls ceux-la sont bascultables a chaud via l'API
-# harbor (voir le commentaire "Traitement audio optionnel" dans radio.liq) :
-# crossfade necessite un redemarrage de liquidsoap-radio.
-LIVE_TOGGLABLE_AUDIO_FX = {"normalize", "blank_removal"}
+# ATTENTION (21/08) : normalize/blank_removal sont temporairement retires du
+# graphe audio dans radio.liq (fuite memoire constatee en production, voir
+# le commentaire "Traitement audio optionnel" dans radio.liq) - l'endpoint
+# harbor /audio-fx qui les bascultait a chaud a ete retire avec eux. Cet
+# ensemble reste donc vide pour l'instant ; seul crossfade existe (lu au
+# demarrage de Liquidsoap depuis audio_fx.json, jamais a chaud).
+LIVE_TOGGLABLE_AUDIO_FX = set()
 
 
 class LiquidsoapUnavailable(Exception):

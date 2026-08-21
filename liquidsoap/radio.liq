@@ -91,21 +91,27 @@ prio = request.queue(id="prio")
 # Traitement audio optionnel, active/desactivable depuis l'interface web
 # (Reglages -> Traitement audio).
 #
-#   - normalize/blank_removal sont bascules "a chaud" (sans redemarrage) via
-#     les references ci-dessous, modifiees par l'appli Flask via l'API HTTP
-#     /audio-fx (voir plus bas) ; le changement prend effet au prochain
-#     changement de titre (jamais au milieu d'un titre en cours).
-#   - crossfade cree son propre "sous-horloge" interne a Liquidsoap
-#     (bufferisation pour analyser le niveau sonore autour de chaque
-#     transition) : il ne peut pas etre bascule a chaud sans redemarrage.
-#     Son etat est donc lu une seule fois au demarrage depuis audio_fx.json,
-#     comme "Diffusion externe" (relays.json) juste plus bas : changez-le
-#     depuis Reglages puis `sudo systemctl restart liquidsoap-radio`.
+# ATTENTION (21/08) : la normalisation/compression et la suppression des
+# blancs ont ete retirees temporairement du graphe audio ci-dessous suite a
+# une fuite memoire constatee en production (croissance ~75 Mo/minute,
+# confirmee par mesures repetees) peu apres leur activation. Cause exacte
+# non identifiee (le switch() utilise pour les basculer a chaud est
+# suspecte, mais pas confirme) ; a re-introduire seulement apres tests hors
+# production. Seul le fondu enchaine (crossfade) reste actif : c'est une
+# construction plus simple (un simple "if" a la construction du graphe, pas
+# de switch() ni d'operateur compress/normalize/blank.strip en continu) qui
+# n'a pas montre ce comportement.
 #
-# audio_fx.json est ecrit par l'appli Flask a chaque enregistrement des
-# reglages, avec les 3 valeurs (meme celles bascultees a chaud) : ca permet
-# de retrouver le dernier etat choisi si Liquidsoap redemarre independamment
-# de l'appli web (mise a jour, reboot du serveur...).
+# crossfade cree son propre "sous-horloge" interne a Liquidsoap
+# (bufferisation pour analyser le niveau sonore autour de chaque
+# transition) : il ne peut pas etre bascule a chaud sans redemarrage. Son
+# etat est donc lu une seule fois au demarrage depuis audio_fx.json, comme
+# "Diffusion externe" (relays.json) juste plus bas : changez-le depuis
+# Reglages puis `sudo systemctl restart liquidsoap-radio` (ou le bouton
+# "Redemarrer Liquidsoap maintenant" dans l'interface).
+#
+# audio_fx.json continue de stocker les 3 valeurs (ecrit par l'appli Flask),
+# mais seule "crossfade" est lue ici pour l'instant.
 # ---------------------------------------------------------------------------
 
 def load_audio_fx() =
@@ -127,28 +133,11 @@ end
 
 audio_fx_initial = load_audio_fx()
 
-enable_blank_removal = ref(audio_fx_initial.blank_removal)
-enable_normalize     = ref(audio_fx_initial.normalize)
-
-# Suppression des blancs : uniquement sur la bibliotheque de musiques (les
-# jingles/pubs sont en general des fichiers courts et deja proprement
-# coupes). max_blank/threshold sont volontairement prudents (silence de plus
-# de 4s a moins de -40dB) pour ne pas rogner des passages juste calmes.
-musiques_blank_stripped =
-  blank.strip(id="musiques_blank_strip", max_blank=4., threshold=-40., musiques_raw)
-
-musiques =
-  switch(
-    id="musiques_apres_blancs", track_sensitive=true,
-    [(fun () -> !enable_blank_removal, musiques_blank_stripped),
-     (fun () -> true, musiques_raw)]
-  )
-
 # ---------------------------------------------------------------------------
 # Enchainement : priorite a la file (jingles/pubs), sinon musiques en continu
 # ---------------------------------------------------------------------------
 
-radio_sans_fondu = fallback(id="radio", track_sensitive=true, [prio, musiques])
+radio_sans_fondu = fallback(id="radio", track_sensitive=true, [prio, musiques_raw])
 
 radio =
   if audio_fx_initial.crossfade then
@@ -156,27 +145,6 @@ radio =
   else
     radio_sans_fondu
   end
-
-# Normalisation + compression/limiteur : chaine de mastering finale, apres le
-# fondu enchaine. normalize() ramene le niveau RMS moyen a une cible
-# constante (evite les ecarts de volume entre fichiers uploades) ; compress()
-# avec un ratio eleve absorbe ensuite les pics restants, faisant office de
-# limiteur. Reglages prudents par defaut ; ajustez ici si besoin (pas
-# exposes dans l'interface, seule l'activation/desactivation l'est).
-radio_avant_normalisation = radio
-
-radio_normalise =
-  compress(
-    threshold=-6., ratio=4., attack=0.005, release=0.1, knee=3.,
-    normalize(target=-16., radio_avant_normalisation)
-  )
-
-radio =
-  switch(
-    id="radio_apres_normalisation", track_sensitive=true,
-    [(fun () -> !enable_normalize, radio_normalise),
-     (fun () -> true, radio_avant_normalisation)]
-  )
 
 radio = mksafe(radio)
 
@@ -229,11 +197,9 @@ prio.on_track(synchronous=false, fun (m) -> post_now_playing(m["category"], m))
 #   GET /skip
 #       -> passe immediatement au titre suivant
 #
-#   GET /audio-fx?name=normalize|blank_removal&value=true|false
-#       -> active/desactive un traitement audio a la volee (voir la section
-#          "Traitement audio optionnel" plus haut) ; pris en compte au
-#          prochain changement de titre, aucun redemarrage necessaire.
-#          (le crossfade ne peut pas etre bascule a chaud, voir plus haut)
+# (l'ancien endpoint /audio-fx, pour basculer normalize/blank_removal a
+# chaud, a ete retire temporairement en meme temps que ces 2 traitements -
+# voir la section "Traitement audio optionnel" plus haut)
 # ---------------------------------------------------------------------------
 
 # NB : les parametres sont nommes hreq/hresp (et non request/response) pour
@@ -268,25 +234,6 @@ def handle_ping(hreq, hresp) =
 end
 
 harbor.http.register(port=harbor_port, method="GET", "/ping", handle_ping)
-
-def handle_audio_fx(hreq, hresp) =
-  name = hreq.query["name"]
-  value = hreq.query["value"] == "true"
-  known = list.mem(name, ["normalize", "blank_removal"])
-  if not known then
-    hresp.status_code(400)
-    hresp.json({error = "parametre 'name' invalide (normalize|blank_removal ; crossfade se change depuis audio_fx.json + redemarrage, voir Reglages)"})
-  else
-    if name == "normalize" then
-      enable_normalize := value
-    else
-      enable_blank_removal := value
-    end
-    hresp.json({status = "ok", name = name, enabled = value})
-  end
-end
-
-harbor.http.register(port=harbor_port, method="GET", "/audio-fx", handle_audio_fx)
 
 # ---------------------------------------------------------------------------
 # Sortie(s)

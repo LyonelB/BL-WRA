@@ -48,17 +48,11 @@
     </label>
     <p class="hint">Necessite un redemarrage de Liquidsoap pour s'appliquer apres l'enregistrement (bouton ci-dessous).</p>
 
-    <label class="checkbox-list-item">
-      <input type="checkbox" name="audio_normalize_enabled" {{ "checked" if settings.get("audio_normalize_enabled") == "1" else "" }}>
-      Normalisation de volume + compression/limiteur
-    </label>
-    <p class="hint">Egalise le niveau sonore entre les fichiers et absorbe les pics. Applique des l'enregistrement, sans redemarrage.</p>
-
-    <label class="checkbox-list-item">
-      <input type="checkbox" name="audio_blank_removal_enabled" {{ "checked" if settings.get("audio_blank_removal_enabled") == "1" else "" }}>
-      Detection et suppression des blancs (silences) dans les musiques
-    </label>
-    <p class="hint">Coupe les silences de plus de 4 secondes dans la bibliotheque de musiques (pas les jingles/pubs). Applique des l'enregistrement, sans redemarrage.</p>
+    <p class="hint">
+      Normalisation de volume et suppression des blancs sont temporairement indisponibles
+      (une fuite memoire a ete constatee en production peu apres leur activation le 21/08 ;
+      elles reviendront une fois la cause identifiee et corrigee hors production).
+    </p>
 
     <button type="submit" class="btn btn-primary">Enregistrer</button>
   </form>
