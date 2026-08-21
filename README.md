@@ -157,21 +157,33 @@ indépendamment :
   ./install.sh` le fait automatiquement sur une nouvelle installation ; sur
   une installation existante, copiez-le une fois à la main — voir le
   commentaire en tête du fichier).
-- **Normalisation de volume + compression/limiteur** — égalise le niveau
-  sonore moyen entre les fichiers uploadés (normalisation), puis absorbe les
-  pics restants (compression à ratio élevé, en pratique un limiteur).
-  S'applique dès l'enregistrement, sans redémarrage.
-- **Détection et suppression des blancs** — coupe les silences de plus de 4
-  secondes à l'intérieur des musiques (pas les jingles/pubs, généralement
-  déjà propres). S'applique dès l'enregistrement, sans redémarrage.
+- **Normalisation de volume + compression/limiteur** et **détection et
+  suppression des blancs** — **temporairement indisponibles** (retirées le
+  21/08 suite à une fuite mémoire constatée en production peu après leur
+  activation ; voir le commentaire "ATTENTION" dans `radio.liq`). À
+  réintroduire une fois la cause identifiée hors production.
 
-Les deux derniers prennent effet au prochain changement de titre (l'appli
-web pousse l'état vers l'API locale de Liquidsoap) ; ils sont aussi
-sauvegardés dans `liquidsoap/audio_fx.json` (côté serveur, hors dépôt) afin
-que Liquidsoap retrouve le bon état s'il redémarre indépendamment de l'appli
-web. Les réglages fins (seuils, ratio, durée du fondu...) ne sont pas
-exposés dans l'interface ; ajustez-les directement dans `radio.liq` si
-besoin (section "Traitement audio optionnel").
+Le fondu enchaîné est sauvegardé dans `liquidsoap/audio_fx.json` (côté
+serveur, hors dépôt) afin que Liquidsoap retrouve le bon état s'il redémarre
+indépendamment de l'appli web.
+
+## Fiabilité 24h/24 7j/7
+
+Objectif du projet : fonctionnement continu sans intervention manuelle.
+Deux mécanismes y contribuent :
+
+- **`Restart=on-failure`** sur `liquidsoap-radio.service` et
+  `radio-web.service` : si l'un des deux plante vraiment (crash), systemd le
+  relance automatiquement en quelques secondes.
+- **Redémarrage préventif quotidien** de `liquidsoap-radio`
+  (`liquidsoap-radio-restart.timer`, 4h du matin par défaut) : une dérive
+  mémoire/CPU qui dégrade le flux (audible en continu) sans jamais faire
+  planter le processus n'est *pas* rattrapée par `Restart=on-failure` — ce
+  timer repart d'une base saine chaque nuit, indépendamment de la cause
+  exacte. Coupure du flux limitée à quelques secondes, à l'heure creuse.
+  Changez l'heure dans `/etc/systemd/system/liquidsoap-radio-restart.timer`
+  (`OnCalendar=`) puis `sudo systemctl daemon-reload && sudo systemctl
+  restart liquidsoap-radio-restart.timer`.
 
 ## Sécurité — à faire avant mise en production
 

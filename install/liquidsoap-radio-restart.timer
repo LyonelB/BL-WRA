@@ -1,0 +1,30 @@
+# BL-WRA - planifie un redemarrage preventif quotidien de liquidsoap-radio.
+#
+# Objectif : fonctionnement 24h/24 7j/7 sans intervention manuelle. Meme
+# avec Restart=on-failure sur liquidsoap-radio.service (qui relance le
+# processus s'il plante vraiment), une derive de memoire/CPU qui degrade le
+# flux SANS faire planter le processus (voir le cycle "Latency is too
+# high... Resetting active sources" dans les logs) n'est PAS rattrapee par
+# Restart=on-failure. Ce timer repart d'une base saine chaque nuit,
+# independamment de la cause exacte (fuite corrigee ou non).
+#
+# Coupure du flux : quelques secondes seulement (le temps du redemarrage du
+# service), a l'heure creuse choisie ci-dessous.
+#
+# Changer l'heure : modifiez OnCalendar (format systemd.time(7)), puis :
+#   sudo cp install/liquidsoap-radio-restart.timer /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl restart liquidsoap-radio-restart.timer
+
+[Unit]
+Description=BL-WRA - minuterie du redemarrage preventif quotidien de liquidsoap-radio
+
+[Timer]
+# 4h du matin heure locale du serveur, tous les jours.
+OnCalendar=*-*-* 04:00:00
+# Si le Pi etait eteint/en redemarrage a l'heure prevue, rattrape des que
+# possible plutot que d'attendre le lendemain.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

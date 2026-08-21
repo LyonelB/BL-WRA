@@ -1,0 +1,7 @@
+[Unit]
+Description=BL-WRA - redemarrage preventif quotidien de liquidsoap-radio
+After=liquidsoap-radio.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/systemctl restart liquidsoap-radio.service

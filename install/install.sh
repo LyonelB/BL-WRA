@@ -64,6 +64,15 @@ echo "-> notez-les quelque part, ils ne seront plus jamais affiches en clair."
 echo "== 6. Services systemd =="
 cp liquidsoap-radio.service /etc/systemd/system/
 sed "s/RADIO_SECRET_KEY=CHANGEZ-MOI/RADIO_SECRET_KEY=${FLASK_SECRET}/" radio-web.service > /etc/systemd/system/radio-web.service
+
+# Redemarrage preventif quotidien de liquidsoap-radio (4h du matin par
+# defaut) : objectif fonctionnement 24h/24 7j/7 sans intervention manuelle,
+# meme si une derive memoire/CPU ne fait pas planter le processus (voir le
+# commentaire dans liquidsoap-radio-restart.timer). Modifiable apres coup en
+# editant /etc/systemd/system/liquidsoap-radio-restart.timer.
+cp liquidsoap-radio-restart.service /etc/systemd/system/
+cp liquidsoap-radio-restart.timer /etc/systemd/system/
+
 systemctl daemon-reload
 
 # Autorise l'utilisateur "radio" a redemarrer liquidsoap-radio sans mot de
@@ -85,6 +94,7 @@ systemctl restart icecast2
 systemctl enable icecast2 >/dev/null
 systemctl enable --now liquidsoap-radio.service
 systemctl enable --now radio-web.service
+systemctl enable --now liquidsoap-radio-restart.timer
 
 echo "== 9. Nginx (optionnel) =="
 echo "Voir nginx-radio.conf si vous preferez exposer l'interface sur le port"
