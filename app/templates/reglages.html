@@ -43,10 +43,10 @@
     <input type="hidden" name="form_name" value="audio_fx">
 
     <label class="checkbox-list-item">
-      <input type="checkbox" name="audio_crossfade_enabled" {{ "checked" if settings.get("audio_crossfade_enabled") == "1" else "" }}>
+      <input type="checkbox" id="audio_crossfade_enabled" name="audio_crossfade_enabled" {{ "checked" if settings.get("audio_crossfade_enabled") == "1" else "" }}>
       Enchainement avec fondu (fade in / fade out) entre les titres
     </label>
-    <p class="hint">Necessite un redemarrage de Liquidsoap pour s'appliquer : <code>sudo systemctl restart liquidsoap-radio</code> apres avoir enregistre.</p>
+    <p class="hint">Necessite un redemarrage de Liquidsoap pour s'appliquer apres l'enregistrement (bouton ci-dessous).</p>
 
     <label class="checkbox-list-item">
       <input type="checkbox" name="audio_normalize_enabled" {{ "checked" if settings.get("audio_normalize_enabled") == "1" else "" }}>
@@ -62,6 +62,25 @@
 
     <button type="submit" class="btn btn-primary">Enregistrer</button>
   </form>
+
+  <form method="post" action="{{ url_for('settings.redemarrer_liquidsoap') }}" id="restart-liquidsoap-form" class="inline-form" style="{{ '' if crossfade_needs_restart else 'display:none;' }}">
+    <p class="hint" style="margin-bottom: 8px;">Le fondu enchaine a change et necessite un redemarrage de Liquidsoap pour s'appliquer (quelques secondes de coupure du flux).</p>
+    <button type="submit" class="btn btn-secondary">Redemarrer Liquidsoap maintenant</button>
+  </form>
+
+  <script>
+    (function () {
+      var checkbox = document.getElementById("audio_crossfade_enabled");
+      var restartForm = document.getElementById("restart-liquidsoap-form");
+      if (!checkbox || !restartForm) return;
+      var initial = checkbox.checked;
+      var savedNeedsRestart = restartForm.style.display !== "none";
+      checkbox.addEventListener("change", function () {
+        var changed = checkbox.checked !== initial;
+        restartForm.style.display = (changed || savedNeedsRestart) ? "block" : "none";
+      });
+    })();
+  </script>
 </section>
 
 <section class="card">

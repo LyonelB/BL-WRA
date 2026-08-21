@@ -2,6 +2,8 @@
 Reglages de rotation (frequence des jingles/pubs) et infos station.
 """
 
+import subprocess
+
 from flask import Blueprint, current_app, flash, redirect, render_template, request, url_for
 
 import database
@@ -30,6 +32,7 @@ def reglages():
     relays = database.list_relays()
     pub_slots = database.list_pub_slots()
     active_pubs = database.list_tracks("pub", active_only=True)
+    crossfade_needs_restart = settings.get("audio_crossfade_pending_restart") == "1"
     return render_template(
         "reglages.html",
         settings=settings,
@@ -37,7 +40,36 @@ def reglages():
         relays=relays,
         pub_slots=pub_slots,
         active_pubs=active_pubs,
+        crossfade_needs_restart=crossfade_needs_restart,
     )
+
+
+@bp.route("/reglages/redemarrer-liquidsoap", methods=["POST"])
+@login_required
+def redemarrer_liquidsoap():
+    """Redemarre liquidsoap-radio depuis l'interface (necessaire pour
+    appliquer un changement de fondu enchaine, voir audio_fx_initial dans
+    radio.liq). Le service radio-web tourne en tant qu'utilisateur "radio",
+    qui doit avoir le droit sudo dedie (voir install/radio-sudoers)."""
+    try:
+        subprocess.run(
+            ["sudo", "/usr/bin/systemctl", "restart", "liquidsoap-radio"],
+            check=True, capture_output=True, timeout=15, text=True,
+        )
+        database.set_setting("audio_crossfade_pending_restart", "0")
+        flash("Liquidsoap redemarre.", "success")
+    except subprocess.CalledProcessError as exc:
+        flash(
+            "Echec du redemarrage de Liquidsoap : "
+            + (exc.stderr.strip() if exc.stderr else str(exc))
+            + ". Verifiez que /etc/sudoers.d/radio-wra est bien installe (voir install/radio-sudoers).",
+            "error",
+        )
+    except subprocess.TimeoutExpired:
+        flash("Le redemarrage de Liquidsoap prend plus de temps que prevu, verifiez manuellement.", "error")
+    except FileNotFoundError:
+        flash("Commande 'sudo' introuvable sur ce serveur.", "error")
+    return redirect(url_for("settings.reglages"))
 
 
 def _save_rotation():
@@ -58,6 +90,8 @@ def _save_rotation():
 
 
 def _save_audio_fx():
+    old_crossfade = database.get_setting("audio_crossfade_enabled", "1")
+
     audio_normalize_enabled = "1" if request.form.get("audio_normalize_enabled") else "0"
     audio_crossfade_enabled = "1" if request.form.get("audio_crossfade_enabled") else "0"
     audio_blank_removal_enabled = "1" if request.form.get("audio_blank_removal_enabled") else "0"
@@ -65,6 +99,13 @@ def _save_audio_fx():
     database.set_setting("audio_normalize_enabled", audio_normalize_enabled)
     database.set_setting("audio_crossfade_enabled", audio_crossfade_enabled)
     database.set_setting("audio_blank_removal_enabled", audio_blank_removal_enabled)
+
+    # Le fondu enchaine n'est relu qu'au demarrage de Liquidsoap (voir
+    # radio.liq) : s'il a change, on memorise qu'un redemarrage reste a
+    # faire (bouton "Redemarrer Liquidsoap maintenant" ci-dessous), jusqu'a
+    # ce qu'il soit effectivement declenche.
+    if audio_crossfade_enabled != old_crossfade:
+        database.set_setting("audio_crossfade_pending_restart", "1")
 
     updated_settings = database.get_all_settings()
     try:
@@ -84,6 +125,8 @@ def _save_audio_fx():
             + ", ".join(failed) + " (repris automatiquement a son prochain demarrage).",
             "error",
         )
+    elif audio_crossfade_enabled != old_crossfade:
+        flash("Reglages enregistres. Le fondu enchaine a change : redemarrez Liquidsoap pour l'appliquer.", "success")
     else:
         flash("Reglages enregistres.", "success")
     return redirect(url_for("settings.reglages"))

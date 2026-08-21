@@ -12,11 +12,26 @@
     <p id="public-artist" class="muted">{{ now_playing.artist or "" }}</p>
     <span id="public-category" class="badge badge-{{ now_playing.category }}">{{ now_playing.category }}</span>
     {% if stream_url %}
-    <audio controls preload="none" class="player" src="{{ stream_url }}"></audio>
+    <audio id="radio-player" controls preload="none" class="player"></audio>
+    <p class="hint">
+      <a id="external-player-link" href="{{ stream_url }}" target="_blank" rel="noopener">Ouvrir le flux directement</a>
+      (VLC, lecteur audio externe...) en cas de souci de lecture ici.
+    </p>
     {% endif %}
   </div>
 </div>
 <script>
+  {% if stream_url %}
+  (function () {
+    var streamUrl = {{ stream_url | tojson }};
+    var player = document.getElementById("radio-player");
+    // Cache-bust a chaque chargement de page : evite qu'un navigateur
+    // reutilise/mette en cache une reponse pour le flux et s'arrete au bout
+    // d'un moment au lieu de continuer a lire en direct.
+    var sep = streamUrl.indexOf("?") === -1 ? "?" : "&";
+    player.src = streamUrl + sep + "nocache=" + Date.now();
+  })();
+  {% endif %}
   const evtSource = new EventSource("/api/public/now-playing/stream");
   evtSource.onmessage = (event) => {
     const data = JSON.parse(event.data);

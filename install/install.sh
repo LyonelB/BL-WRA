@@ -66,6 +66,13 @@ cp liquidsoap-radio.service /etc/systemd/system/
 sed "s/RADIO_SECRET_KEY=CHANGEZ-MOI/RADIO_SECRET_KEY=${FLASK_SECRET}/" radio-web.service > /etc/systemd/system/radio-web.service
 systemctl daemon-reload
 
+# Autorise l'utilisateur "radio" a redemarrer liquidsoap-radio sans mot de
+# passe (bouton "Redemarrer Liquidsoap maintenant" dans Reglages -> Traitement
+# audio, necessaire pour appliquer le fondu enchaine sans SSH).
+cp radio-sudoers /etc/sudoers.d/radio-wra
+chmod 0440 /etc/sudoers.d/radio-wra
+visudo -c
+
 chown -R radio:radio "$RADIO_HOME"
 
 echo "== 7. Environnement Python =="

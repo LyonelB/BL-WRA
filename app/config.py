@@ -71,4 +71,8 @@ DEFAULT_SETTINGS = {
     "audio_normalize_enabled": "0",
     "audio_crossfade_enabled": "1",
     "audio_blank_removal_enabled": "0",
+    # "1" tant qu'un changement de fondu enchaine n'a pas ete applique par
+    # un redemarrage de Liquidsoap (voir bouton "Redemarrer Liquidsoap
+    # maintenant" dans Reglages -> Traitement audio).
+    "audio_crossfade_pending_restart": "0",
 }

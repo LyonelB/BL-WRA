@@ -16,7 +16,26 @@
   <span id="np-category" class="badge badge-{{ now_playing.category }}">{{ now_playing.category }}</span>
 
   {% if settings.get('stream_url') %}
-  <audio controls preload="none" class="player" src="{{ settings.get('stream_url') }}"></audio>
+  <audio id="radio-player" controls preload="none" class="player"></audio>
+  <p class="hint">
+    Le lecteur ne charge le flux qu'au clic sur lecture (pas de mise en cache). En cas de souci de lecture dans le navigateur,
+    <a id="external-player-link" href="{{ settings.get('stream_url') }}" target="_blank" rel="noopener">ouvrez le flux directement</a>
+    (VLC, lecteur audio externe...).
+  </p>
+  <script>
+    (function () {
+      var streamUrl = {{ settings.get('stream_url') | tojson }};
+      var player = document.getElementById("radio-player");
+      var externalLink = document.getElementById("external-player-link");
+      if (!player) return;
+      // Cache-bust a chaque chargement de page : evite qu'un navigateur
+      // reutilise/mette en cache une reponse pour le flux et s'arrete au
+      // bout d'un moment au lieu de continuer a lire en direct.
+      var sep = streamUrl.indexOf("?") === -1 ? "?" : "&";
+      player.src = streamUrl + sep + "nocache=" + Date.now();
+      if (externalLink) { externalLink.href = streamUrl; }
+    })();
+  </script>
   {% else %}
   <p class="hint">Renseignez l'URL du flux dans <a href="{{ url_for('settings.reglages') }}">Réglages</a> pour activer le lecteur ici.</p>
   {% endif %}

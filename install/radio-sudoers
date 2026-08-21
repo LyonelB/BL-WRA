@@ -1,0 +1,14 @@
+# BL-WRA - permet a l'utilisateur systeme "radio" (celui qui fait tourner
+# radio-web.service) de redemarrer liquidsoap-radio.service sans mot de
+# passe, et uniquement cette commande precise. Necessaire pour le bouton
+# "Redemarrer Liquidsoap maintenant" (Reglages -> Traitement audio), qui
+# permet d'appliquer le fondu enchaine (crossfade) sans avoir a se
+# connecter en SSH.
+#
+# Installe automatiquement par install.sh (copie vers
+# /etc/sudoers.d/radio-wra, permissions 0440). Sur une installation
+# existante mise a jour via deploy.sh, copiez-le vous-meme une fois :
+#   sudo cp install/radio-sudoers /etc/sudoers.d/radio-wra
+#   sudo chmod 0440 /etc/sudoers.d/radio-wra
+#   sudo visudo -c
+radio ALL=(root) NOPASSWD: /usr/bin/systemctl restart liquidsoap-radio

@@ -149,9 +149,14 @@ indépendamment :
 - **Enchaînement avec fondu (fade in / fade out)** — plutôt qu'un
   enchaînement sec entre les titres. Historiquement toujours actif ; c'est
   le seul des trois réglages qui **nécessite un redémarrage de Liquidsoap**
-  pour s'appliquer (`sudo systemctl restart liquidsoap-radio`) : le fondu
-  enchaîné a besoin de mettre en place son propre système de bufferisation
-  au démarrage du flux, il ne peut pas être basculé à la volée.
+  pour s'appliquer : le fondu enchaîné a besoin de mettre en place son
+  propre système de bufferisation au démarrage du flux, il ne peut pas être
+  basculé à la volée. Un bouton **« Redémarrer Liquidsoap maintenant »**
+  apparaît dans l'interface dès que ce réglage a changé (pas besoin de SSH).
+  Il nécessite que `install/radio-sudoers` soit installé (`sudo
+  ./install.sh` le fait automatiquement sur une nouvelle installation ; sur
+  une installation existante, copiez-le une fois à la main — voir le
+  commentaire en tête du fichier).
 - **Normalisation de volume + compression/limiteur** — égalise le niveau
   sonore moyen entre les fichiers uploadés (normalisation), puis absorbe les
   pics restants (compression à ratio élevé, en pratique un limiteur).
