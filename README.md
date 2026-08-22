@@ -185,6 +185,25 @@ Deux mécanismes y contribuent :
   (`OnCalendar=`) puis `sudo systemctl daemon-reload && sudo systemctl
   restart liquidsoap-radio-restart.timer`.
 
+## Page Logs
+
+Menu "Logs" dans l'interface : affiche les 100 dernières lignes de journal
+(`journalctl`) de `radio-web` et `liquidsoap-radio`, avec un sélecteur pour
+filtrer sur l'un des deux services, coloration ERROR/WARNING/INFO et
+rafraîchissement automatique toutes les 30 secondes — même principe que la
+page Stats de **BL-FMO** (route `/api/logs`).
+
+Pour que ça fonctionne, l'utilisateur système `radio` (celui qui fait
+tourner `radio-web.service`) doit être membre du groupe `systemd-journal`,
+sinon `journalctl` ne renvoie rien (la page l'indique clairement plutôt que
+de planter). `install.sh` le fait automatiquement sur une nouvelle
+installation ; sur une installation existante, exécutez une fois :
+
+```bash
+sudo usermod -aG systemd-journal radio
+sudo systemctl restart radio-web
+```
+
 ## Sécurité — à faire avant mise en production
 
 - Changez le mot de passe admin par défaut (`admin` / `changeme`).

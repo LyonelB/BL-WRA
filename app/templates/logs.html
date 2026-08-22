@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Logs{% endblock %}
+{% block content %}
+<div class="page-header">
+  <h1>Logs systeme</h1>
+</div>
+<p class="hint">Dernieres 100 lignes de journal (journalctl) des services radio-web et
+  liquidsoap-radio, directement dans l'interface - meme principe que la page Stats de BL-FMO.</p>
+
+<section class="card">
+  <div class="logs-toolbar">
+    <div class="logs-filters" role="group" aria-label="Filtrer les logs">
+      <button type="button" class="btn btn-secondary btn-mini logs-filter active" data-unit="tous">Tout</button>
+      <button type="button" class="btn btn-secondary btn-mini logs-filter" data-unit="web">Interface web</button>
+      <button type="button" class="btn btn-secondary btn-mini logs-filter" data-unit="liquidsoap">Liquidsoap</button>
+    </div>
+    <button type="button" class="btn btn-secondary btn-mini" id="logs-refresh">Rafraichir</button>
+  </div>
+  <div id="log-container" class="log-box">Chargement des logs…</div>
+  <p class="hint" style="margin-top: 10px; margin-bottom: 0;">Actualisation automatique toutes les 30 secondes.</p>
+</section>
+
+<script>
+(function () {
+  var container = document.getElementById("log-container");
+  var refreshBtn = document.getElementById("logs-refresh");
+  var filterButtons = document.querySelectorAll(".logs-filter");
+  var apiUrl = "{{ url_for('logs.api_logs') }}";
+  var currentUnit = "tous";
+
+  function escapeHtml(s) {
+    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+
+  function renderLines(text) {
+    var lines = text.split("\n").filter(function (l) { return l.length > 0; });
+    if (!lines.length) {
+      container.innerHTML = '<div class="log-line log-muted">(aucune ligne de log)</div>';
+      return;
+    }
+    container.innerHTML = lines.map(function (line) {
+      var cls = "log-line";
+      if (/ERROR/i.test(line)) cls += " log-error";
+      else if (/WARN/i.test(line)) cls += " log-warning";
+      else if (/INFO/i.test(line)) cls += " log-info";
+      return '<div class="' + cls + '">' + escapeHtml(line) + "</div>";
+    }).join("");
+    container.scrollTop = container.scrollHeight;
+  }
+
+  function loadLogs() {
+    fetch(apiUrl + "?unit=" + encodeURIComponent(currentUnit), { credentials: "same-origin" })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.error) {
+          container.innerHTML = '<div class="log-line log-error">' + escapeHtml(data.error) + "</div>";
+          return;
+        }
+        renderLines(data.logs || "");
+      })
+      .catch(function (err) {
+        container.innerHTML = '<div class="log-line log-error">Erreur de chargement : ' + escapeHtml(String(err)) + "</div>";
+      });
+  }
+
+  filterButtons.forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      filterButtons.forEach(function (b) { b.classList.remove("active"); });
+      btn.classList.add("active");
+      currentUnit = btn.getAttribute("data-unit");
+      container.textContent = "Chargement des logs…";
+      loadLogs();
+    });
+  });
+  refreshBtn.addEventListener("click", loadLogs);
+
+  loadLogs();
+  var timer = setInterval(loadLogs, 30000);
+  window.addEventListener("beforeunload", function () { clearInterval(timer); });
+})();
+</script>
+{% endblock %}

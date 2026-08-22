@@ -32,6 +32,9 @@ fi
 
 echo "== 3. Utilisateur dedie =="
 id -u radio &>/dev/null || useradd --system --create-home --shell /usr/sbin/nologin radio
+# Necessaire pour que la page "Logs" de l'interface (journalctl) puisse lire
+# les journaux de radio-web et liquidsoap-radio sans etre root.
+usermod -aG systemd-journal radio
 
 echo "== 4. Arborescence =="
 mkdir -p "$RADIO_HOME"/{app,liquidsoap,media/musiques,media/jingles,media/pubs}
@@ -114,6 +117,7 @@ Verification rapide :
   systemctl status liquidsoap-radio radio-web icecast2
   journalctl -u liquidsoap-radio -f     # logs Liquidsoap en direct
   journalctl -u radio-web -f            # logs de l'appli web en direct
+  -> ou directement depuis l'interface, menu "Logs" (page /logs)
 
 Prochaines etapes :
   1. Deposez quelques musiques/jingles/pubs depuis l'interface web.

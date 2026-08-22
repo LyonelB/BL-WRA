@@ -287,6 +287,39 @@ input:focus { outline: none; border-color: var(--accent); }
 .toggle-on { background: rgba(53,201,143,0.15); color: var(--ok); }
 .toggle-off { background: rgba(255,255,255,0.08); color: var(--text-muted); }
 
+/* --- Logs -------------------------------------------------------- */
+
+.logs-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.logs-filters { display: flex; gap: 6px; }
+
+.logs-filter.active { background: rgba(91,140,255,0.18); color: var(--accent); }
+
+.log-box {
+  background: #05070c;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 16px;
+  height: 440px;
+  overflow-y: auto;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.log-line { white-space: pre-wrap; word-break: break-word; color: var(--text-muted); }
+.log-line.log-info { color: var(--ok); }
+.log-line.log-warning { color: var(--warn); }
+.log-line.log-error { color: var(--danger); }
+.log-line.log-muted { color: var(--text-muted); font-style: italic; }
+
 /* --- Flash messages --------------------------------------------------- */
 
 .flash-stack { padding: 16px 32px 0; }
