@@ -170,7 +170,7 @@ indépendamment de l'appli web.
 ## Fiabilité 24h/24 7j/7
 
 Objectif du projet : fonctionnement continu sans intervention manuelle.
-Deux mécanismes y contribuent :
+Plusieurs mécanismes y contribuent :
 
 - **`Restart=on-failure`** sur `liquidsoap-radio.service` et
   `radio-web.service` : si l'un des deux plante vraiment (crash), systemd le
@@ -184,6 +184,12 @@ Deux mécanismes y contribuent :
   Changez l'heure dans `/etc/systemd/system/liquidsoap-radio-restart.timer`
   (`OnCalendar=`) puis `sudo systemctl daemon-reload && sudo systemctl
   restart liquidsoap-radio-restart.timer`.
+- **`deploy.sh` ne redémarre `liquidsoap-radio` que si `radio.liq` a
+  réellement changé** (comparaison de hash avant/après copie, mot de passe
+  Icecast réinjecté inclus) : une mise à jour qui ne touche que l'appli web
+  (`app/`) — un correctif d'interface, une page en plus, etc. — redémarre
+  seulement `radio-web` (aucun impact sur le flux) sans couper l'antenne
+  pour rien.
 
 ## Page Logs
 

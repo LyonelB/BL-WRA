@@ -47,21 +47,47 @@ echo "== 2. Appli web (app/) =="
 rsync -a --exclude venv "$REPO_ROOT/app/" "$RADIO_HOME/app/"
 
 echo "== 3. Liquidsoap (radio.liq) =="
-cp "$REPO_ROOT/liquidsoap/radio.liq" "$RADIO_HOME/liquidsoap/radio.liq"
+# On ne redemarre liquidsoap-radio que si radio.liq change reellement :
+# ce redemarrage coupe le flux quelques secondes (voir "Fiabilite 24h/24
+# 7j/7" dans le README), inutile de l'infliger aux auditeurs pour une mise
+# a jour qui ne touche que l'appli web (app/), comme une simple correction
+# de texte. Hash calcule sur le fichier deploye, mot de passe Icecast
+# reinjecte inclus, pour ne pas se declencher a tort sur une difference de
+# mot de passe uniquement.
+RADIO_LIQ="$RADIO_HOME/liquidsoap/radio.liq"
+OLD_HASH=""
+[ -f "$RADIO_LIQ" ] && OLD_HASH="$(sha256sum "$RADIO_LIQ" | cut -d' ' -f1)"
+
+cp "$REPO_ROOT/liquidsoap/radio.liq" "$RADIO_LIQ"
 if [ -n "$CURRENT_PW" ] && [ "$CURRENT_PW" != "changeme_icecast_source_password" ]; then
-  sed -i "s/changeme_icecast_source_password/${CURRENT_PW}/" "$RADIO_HOME/liquidsoap/radio.liq"
+  sed -i "s/changeme_icecast_source_password/${CURRENT_PW}/" "$RADIO_LIQ"
   echo "Mot de passe Icecast existant reinjecte automatiquement."
 else
   echo "!! Aucun mot de passe Icecast existant recupere : verifiez"
-  echo "   $RADIO_HOME/liquidsoap/radio.liq avant de redemarrer liquidsoap-radio !"
+  echo "   $RADIO_LIQ avant de redemarrer liquidsoap-radio !"
+fi
+
+NEW_HASH="$(sha256sum "$RADIO_LIQ" | cut -d' ' -f1)"
+if [ "$OLD_HASH" != "$NEW_HASH" ]; then
+  RESTART_LIQUIDSOAP=1
+else
+  RESTART_LIQUIDSOAP=0
 fi
 
 echo "== 4. Permissions =="
 chown -R radio:radio "$RADIO_HOME"
 
 echo "== 5. Redemarrage des services =="
+# radio-web : redemarrage systematique, sans impact sur le flux (juste
+# l'interface d'administration indisponible une fraction de seconde).
 systemctl restart radio-web
-systemctl restart liquidsoap-radio
+
+if [ "$RESTART_LIQUIDSOAP" -eq 1 ]; then
+  echo "radio.liq a change : redemarrage de liquidsoap-radio (coupure du flux de quelques secondes)."
+  systemctl restart liquidsoap-radio
+else
+  echo "radio.liq inchange : liquidsoap-radio non redemarre, flux non interrompu."
+fi
 
 echo "== Termine =="
 sleep 1
