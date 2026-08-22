@@ -101,9 +101,10 @@ def _maybe_push_due_pub_slots(app, base_url):
     now = datetime.now()
     today = now.strftime("%Y-%m-%d")
     now_hm = now.strftime("%H:%M")
+    weekday = str(now.isoweekday())  # 1=lundi ... 7=dimanche
 
     pushed_any = False
-    for slot in database.due_pub_slots(now_hm, today):
+    for slot in database.due_pub_slots(now_hm, today, weekday):
         for track in database.get_pub_slot_tracks(slot["id"]):
             if _push(base_url, app.config["PUBS_DIR"], track, "pub"):
                 pushed_any = True

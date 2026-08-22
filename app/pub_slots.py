@@ -14,6 +14,9 @@ from auth import login_required
 
 bp = Blueprint("pub_slots", __name__)
 
+# 1=lundi ... 7=dimanche (datetime.isoweekday()), voir rotation.py
+VALID_DAYS = {"1", "2", "3", "4", "5", "6", "7"}
+
 
 def _parse_track_ids():
     ids = []
@@ -25,6 +28,14 @@ def _parse_track_ids():
     return ids
 
 
+def _parse_days():
+    """Jours coches dans le formulaire (cases 'days'), normalises dans
+    l'ordre lundi -> dimanche quel que soit l'ordre de soumission, ex.
+    "1,3,5". Chaine vide si aucun jour coche (a rejeter par l'appelant)."""
+    days = {d for d in request.form.getlist("days") if d in VALID_DAYS}
+    return ",".join(sorted(days, key=int))
+
+
 @bp.route("/reglages/creneaux/ajouter", methods=["POST"])
 @login_required
 def ajouter():
@@ -33,7 +44,12 @@ def ajouter():
         flash("L'heure du creneau est obligatoire.", "error")
         return redirect(url_for("settings.reglages"))
 
-    database.add_pub_slot(time_str, _parse_track_ids())
+    days_str = _parse_days()
+    if not days_str:
+        flash("Selectionnez au moins un jour de diffusion.", "error")
+        return redirect(url_for("settings.reglages"))
+
+    database.add_pub_slot(time_str, days_str, _parse_track_ids())
     flash("Creneau ajoute.", "success")
     return redirect(url_for("settings.reglages"))
 
@@ -51,7 +67,13 @@ def modifier(slot_id):
         if not time_str:
             flash("L'heure du creneau est obligatoire.", "error")
             return redirect(url_for("pub_slots.modifier", slot_id=slot_id))
-        database.update_pub_slot(slot_id, time_str, _parse_track_ids())
+
+        days_str = _parse_days()
+        if not days_str:
+            flash("Selectionnez au moins un jour de diffusion.", "error")
+            return redirect(url_for("pub_slots.modifier", slot_id=slot_id))
+
+        database.update_pub_slot(slot_id, time_str, days_str, _parse_track_ids())
         flash("Creneau modifie.", "success")
         return redirect(url_for("settings.reglages"))
 

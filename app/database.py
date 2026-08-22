@@ -66,6 +66,10 @@ CREATE TABLE IF NOT EXISTS relays (
 CREATE TABLE IF NOT EXISTS pub_slots (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     time TEXT NOT NULL,
+    -- Jours de diffusion, ex. "1,2,3,4,5" (1=lundi ... 7=dimanche). Toujours
+    -- rempli (defaut = tous les jours) - voir _migrate_pub_slots_days pour
+    -- les installations anterieures a ce champ.
+    days TEXT NOT NULL DEFAULT '1,2,3,4,5,6,7',
     active INTEGER NOT NULL DEFAULT 1,
     last_fired_date TEXT NOT NULL DEFAULT ''
 );
@@ -99,8 +103,24 @@ def init_db(app):
     with app.app_context():
         db = get_db()
         db.executescript(SCHEMA)
+        _migrate_pub_slots_days(db)
         db.commit()
         _seed_defaults(app, db)
+
+
+def _migrate_pub_slots_days(db):
+    """Ajoute la colonne 'days' a pub_slots si elle n'existe pas encore
+    (installations mises a jour depuis une version anterieure a cette
+    fonctionnalite). "CREATE TABLE IF NOT EXISTS" ci-dessus ne touche pas
+    aux tables deja existantes, d'ou cette migration explicite. Les
+    creneaux existants recoivent tous les jours par defaut (valeur DEFAULT
+    de la colonne), pour continuer a se declencher exactement comme avant
+    (aucune restriction de jour au prealable)."""
+    cols = {row["name"] for row in db.execute("PRAGMA table_info(pub_slots)").fetchall()}
+    if "days" not in cols:
+        db.execute(
+            "ALTER TABLE pub_slots ADD COLUMN days TEXT NOT NULL DEFAULT '1,2,3,4,5,6,7'"
+        )
 
 
 def _seed_defaults(app, db):
@@ -411,11 +431,11 @@ def _set_pub_slot_tracks(db, slot_id, track_ids):
         )
 
 
-def add_pub_slot(time_str, track_ids):
+def add_pub_slot(time_str, days_str, track_ids):
     db = get_db()
     cur = db.execute(
-        "INSERT INTO pub_slots (time, active, last_fired_date) VALUES (?, 1, '')",
-        (time_str,),
+        "INSERT INTO pub_slots (time, days, active, last_fired_date) VALUES (?, ?, 1, '')",
+        (time_str, days_str),
     )
     slot_id = cur.lastrowid
     _set_pub_slot_tracks(db, slot_id, track_ids)
@@ -423,9 +443,11 @@ def add_pub_slot(time_str, track_ids):
     return slot_id
 
 
-def update_pub_slot(slot_id, time_str, track_ids):
+def update_pub_slot(slot_id, time_str, days_str, track_ids):
     db = get_db()
-    db.execute("UPDATE pub_slots SET time = ? WHERE id = ?", (time_str, slot_id))
+    db.execute(
+        "UPDATE pub_slots SET time = ?, days = ? WHERE id = ?", (time_str, days_str, slot_id)
+    )
     _set_pub_slot_tracks(db, slot_id, track_ids)
     db.commit()
 
@@ -442,14 +464,20 @@ def set_pub_slot_active(slot_id, active):
     db.commit()
 
 
-def due_pub_slots(now_hm, today):
-    """Creneaux actifs dont l'heure est deja passee (aujourd'hui) et qui ne
-    se sont pas encore declenches aujourd'hui."""
+def due_pub_slots(now_hm, today, weekday):
+    """Creneaux actifs dont l'heure est deja passee (aujourd'hui), qui
+    incluent le jour de la semaine courant (weekday : "1"=lundi ...
+    "7"=dimanche, voir datetime.isoweekday()) parmi leurs jours de
+    diffusion, et qui ne se sont pas encore declenches aujourd'hui.
+    Le tour ',' || days || ',' LIKE '%,' || ? || ',%' evite tout faux
+    positif de sous-chaine (non necessaire ici vu que "days" ne contient
+    que des chiffres 1-7 uniques, mais plus sur si le format evolue)."""
     db = get_db()
     return db.execute(
         "SELECT * FROM pub_slots WHERE active = 1 AND time <= ? AND last_fired_date != ? "
+        "AND (',' || days || ',') LIKE ('%,' || ? || ',%') "
         "ORDER BY time",
-        (now_hm, today),
+        (now_hm, today, weekday),
     ).fetchall()
 
 

@@ -234,6 +234,14 @@ input:focus { outline: none; border-color: var(--accent); }
   background: var(--bg);
 }
 
+.days-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin-top: 6px;
+}
+.days-picker .checkbox-list-item { padding: 2px 0; }
+
 .checkbox-list-item {
   display: flex;
   align-items: center;

@@ -80,19 +80,20 @@
 <section class="card">
   <h2>Pubs planifiees</h2>
   <p class="hint">
-    A l'heure indiquee, les pubs cochees pour ce creneau passent l'une apres
-    l'autre, a la fin du titre en cours (un creneau ne se declenche qu'une
-    fois par jour).
+    A l'heure indiquee, les jours de la semaine coches, les pubs cochees
+    pour ce creneau passent l'une apres l'autre, a la fin du titre en cours
+    (un creneau ne se declenche qu'une fois par jour).
   </p>
 
   <table class="table">
     <thead>
-      <tr><th>Heure</th><th>Pubs</th><th>Actif</th><th></th></tr>
+      <tr><th>Heure</th><th>Jours</th><th>Pubs</th><th>Actif</th><th></th></tr>
     </thead>
     <tbody>
       {% for entry in pub_slots %}
       <tr class="{{ '' if entry.slot.active else 'row-inactive' }}">
         <td>{{ entry.slot.time }}</td>
+        <td>{{ entry.slot.days | jours_creneau }}</td>
         <td>
           {% if entry.tracks %}
             {% for t in entry.tracks %}{{ t.title or t.filename }}{% if not loop.last %}, {% endif %}{% endfor %}
@@ -115,7 +116,7 @@
         </td>
       </tr>
       {% else %}
-      <tr><td colspan="4" class="muted">Aucun creneau configure : aucune pub ne sera diffusee.</td></tr>
+      <tr><td colspan="5" class="muted">Aucun creneau configure : aucune pub ne sera diffusee.</td></tr>
       {% endfor %}
     </tbody>
   </table>
@@ -125,6 +126,16 @@
   <form method="post" action="{{ url_for('pub_slots.ajouter') }}" class="settings-form">
     <label>Heure
       <input type="time" name="time" required>
+    </label>
+    <label>Jours de diffusion
+      <div class="days-picker">
+        {% for value, label in [("1","Lun"),("2","Mar"),("3","Mer"),("4","Jeu"),("5","Ven"),("6","Sam"),("7","Dim")] %}
+        <label class="checkbox-list-item">
+          <input type="checkbox" name="days" value="{{ value }}" checked>
+          {{ label }}
+        </label>
+        {% endfor %}
+      </div>
     </label>
     <label>Pubs a diffuser a ce creneau
       <div class="checkbox-list">

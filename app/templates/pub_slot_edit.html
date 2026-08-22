@@ -11,6 +11,17 @@
     <label>Heure
       <input type="time" name="time" value="{{ slot.time }}" required>
     </label>
+    <label>Jours de diffusion
+      <div class="days-picker">
+        {% set slot_days = slot.days.split(",") %}
+        {% for value, label in [("1","Lun"),("2","Mar"),("3","Mer"),("4","Jeu"),("5","Ven"),("6","Sam"),("7","Dim")] %}
+        <label class="checkbox-list-item">
+          <input type="checkbox" name="days" value="{{ value }}" {{ "checked" if value in slot_days else "" }}>
+          {{ label }}
+        </label>
+        {% endfor %}
+      </div>
+    </label>
     <label>Pubs à diffuser à ce créneau
       <div class="checkbox-list">
         {% for t in all_pubs %}

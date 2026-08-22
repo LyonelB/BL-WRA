@@ -74,6 +74,23 @@ def create_app():
     def depuis_filter(iso_ts):
         return iso_ts or ""
 
+    _JOUR_LABELS = {"1": "Lun", "2": "Mar", "3": "Mer", "4": "Jeu", "5": "Ven", "6": "Sam", "7": "Dim"}
+
+    @app.template_filter("jours_creneau")
+    def jours_creneau_filter(days_str):
+        """Affichage compact des jours de diffusion d'un creneau pub (voir
+        pub_slots.py) : "Tous les jours" / "Semaine" / "Week-end" pour les
+        cas courants, sinon la liste abregee (ex. "Lun, Mer, Ven")."""
+        days = {d for d in (days_str or "").split(",") if d}
+        if days == set(_JOUR_LABELS):
+            return "Tous les jours"
+        if days == {"1", "2", "3", "4", "5"}:
+            return "Semaine"
+        if days == {"6", "7"}:
+            return "Week-end"
+        ordered = sorted(days, key=lambda d: int(d) if d.isdigit() else 0)
+        return ", ".join(_JOUR_LABELS.get(d, d) for d in ordered) or "-"
+
     @app.context_processor
     def inject_globals():
         return {"station_name": database.get_setting("station_name", "Ma Webradio")}
