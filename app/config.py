@@ -75,4 +75,18 @@ DEFAULT_SETTINGS = {
     # un redemarrage de Liquidsoap (voir bouton "Redemarrer Liquidsoap
     # maintenant" dans Reglages -> Traitement audio).
     "audio_crossfade_pending_restart": "0",
+    # Format cible pour la normalisation de la bibliotheque, reglable depuis
+    # Reglages -> Format audio (voir uploads.py pour le "pourquoi"). Le
+    # format est fixe a mp3 pour l'instant (seul supporte par
+    # uploads.convert_to_mp3) ; seul le bitrate est reellement configurable.
+    "audio_convert_format": "mp3",
+    "audio_convert_bitrate": "192",
+    # Dernier bitrate reellement applique a l'ensemble de la bibliotheque
+    # (mis a jour par library_convert.run, CLI ou bouton web) : permet a
+    # Reglages de detecter un ecart avec audio_convert_bitrate ci-dessus et
+    # d'afficher le bouton "Relancer la conversion" seulement si necessaire.
+    # Initialise a la meme valeur par defaut que audio_convert_bitrate pour
+    # qu'une installation neuve (rien encore importe) n'affiche pas le
+    # bouton inutilement.
+    "audio_library_applied_bitrate": "192",
 }

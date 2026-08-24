@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
 """
-Script de maintenance ponctuel : convertit en MP3 192kbps/44100Hz/stereo
-(sans pochette) tous les fichiers de la bibliotheque (musiques/jingles/pubs)
-qui ne sont pas deja dans ce format, et met a jour la base SQLite en
-consequence (colonnes filename/duration de la table tracks).
+Script de maintenance ponctuel : convertit en MP3 44100Hz/stereo (sans
+pochette) tous les fichiers de la bibliotheque (musiques/jingles/pubs) qui
+ne sont pas deja dans ce format, et met a jour la base SQLite en
+consequence (colonnes filename/duration de la table tracks). Le moteur de
+conversion est partage avec le bouton "Relancer la conversion" de Reglages
+-> Format audio (voir library_convert.py) - les deux font exactement la
+meme chose, un CLI ponctuel etant plus pratique pour une premiere passe sur
+une grosse bibliotheque existante que d'attendre depuis le navigateur.
 
 Pourquoi : depuis l'ajout de la conversion automatique a l'import (voir
 uploads.save_upload), tout nouvel ajout est deja uniformise. Ce script
@@ -18,6 +22,10 @@ Usage (sur le Raspberry Pi, une fois l'appli deployee) :
     cd /opt/radio/app
     sudo -u radio venv/bin/python3 convert_library.py --dry-run   # apercu
     sudo -u radio venv/bin/python3 convert_library.py             # execution
+
+Par defaut, le bitrate cible est celui configure dans Reglages -> Format
+audio (192kbps si jamais configure) ; --bitrate permet de forcer une autre
+valeur ponctuellement.
 
 IMPORTANT : a executer avec l'utilisateur "radio" (sudo -u radio), pas en
 root - sinon les fichiers convertis appartiendraient a root et l'appli web
@@ -36,132 +44,24 @@ version convertie.
 """
 
 import argparse
-import json
 import os
 import sqlite3
-import subprocess
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import config
-import uploads
-
-CATEGORY_DIRS = {
-    "musique": config.MUSIQUES_DIR,
-    "jingle": config.JINGLES_DIR,
-    "pub": config.PUBS_DIR,
-}
-
-
-def probe(filepath):
-    """Renvoie (codec_name, sample_rate, channels, has_video, duration) du
-    premier flux audio, ou None si l'analyse echoue (fichier manquant/
-    corrompu)."""
-    try:
-        result = subprocess.run(
-            [
-                "ffprobe", "-v", "error", "-print_format", "json",
-                "-show_streams", "-show_format", filepath,
-            ],
-            capture_output=True, timeout=30, check=True,
-        )
-        data = json.loads(result.stdout)
-    except Exception:
-        return None
-
-    streams = data.get("streams", [])
-    audio = next((s for s in streams if s.get("codec_type") == "audio"), None)
-    has_video = any(s.get("codec_type") == "video" for s in streams)
-    if not audio:
-        return None
-    duration = None
-    try:
-        duration = round(float(data.get("format", {}).get("duration", 0)), 1)
-    except (TypeError, ValueError):
-        pass
-    return {
-        "codec_name": audio.get("codec_name"),
-        "sample_rate": int(audio.get("sample_rate") or 0),
-        "channels": audio.get("channels"),
-        "has_video": has_video,
-        "duration": duration,
-    }
-
-
-def needs_conversion(filename, info):
-    if info is None:
-        return False  # illisible : on ne touche pas, signale a part
-    ext_ok = filename.lower().endswith(".mp3")
-    return not (
-        ext_ok
-        and info["codec_name"] == "mp3"
-        and info["sample_rate"] == uploads.TARGET_SAMPLE_RATE
-        and info["channels"] == uploads.TARGET_CHANNELS
-        and not info["has_video"]
-    )
-
-
-def convert_one(db, category, track, dry_run):
-    directory = CATEGORY_DIRS[category]
-    filename = track["filename"]
-    src_path = os.path.join(directory, filename)
-
-    if not os.path.exists(src_path):
-        print(f"  [{category}] MANQUANT : {filename} (ignore)")
-        return "missing"
-
-    info = probe(src_path)
-    if info is None:
-        print(f"  [{category}] ILLISIBLE : {filename} (ignore, verifier le fichier manuellement)")
-        return "unreadable"
-
-    if not needs_conversion(filename, info):
-        print(f"  [{category}] deja au format cible : {filename}")
-        return "skipped"
-
-    detail = f"{info['sample_rate']}Hz/{info['channels']}ch/{info['codec_name']}" + (
-        "+pochette" if info["has_video"] else ""
-    )
-    if dry_run:
-        print(f"  [{category}] A CONVERTIR : {filename} ({detail} -> 44100Hz/2ch/mp3)")
-        return "would_convert"
-
-    new_filename = filename if filename.lower().endswith(".mp3") else (
-        os.path.splitext(filename)[0] + ".mp3"
-    )
-    # Nom temporaire pour ne jamais laisser un fichier a moitie ecrit visible
-    # sous le nom final (Liquidsoap scanne le dossier en continu).
-    tmp_path = os.path.join(directory, f".convert-{new_filename}")
-
-    ok = uploads.convert_to_mp3(src_path, tmp_path)
-    if not ok:
-        if os.path.exists(tmp_path):
-            os.remove(tmp_path)
-        print(f"  [{category}] ECHEC conversion : {filename} (ignore, verifier manuellement)")
-        return "failed"
-
-    new_path = os.path.join(directory, new_filename)
-    os.replace(tmp_path, new_path)
-    if new_path != src_path:
-        os.remove(src_path)
-
-    new_info = probe(new_path)
-    new_duration = new_info["duration"] if new_info else track["duration"]
-
-    db.execute(
-        "UPDATE tracks SET filename = ?, duration = ? WHERE id = ?",
-        (new_filename, new_duration, track["id"]),
-    )
-    db.commit()
-
-    print(f"  [{category}] converti : {filename} ({detail}) -> {new_filename} (44100Hz/2ch/mp3)")
-    return "converted"
+import library_convert
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--dry-run", action="store_true", help="Analyse seulement, ne convertit/modifie rien.")
+    parser.add_argument(
+        "--bitrate", type=int, default=None,
+        help="Force un bitrate cible en kbps (par defaut : celui configure dans "
+             "Reglages -> Format audio, 192 si jamais configure).",
+    )
     args = parser.parse_args()
 
     if not os.path.exists(config.DB_PATH):
@@ -171,24 +71,16 @@ def main():
     db = sqlite3.connect(config.DB_PATH)
     db.row_factory = sqlite3.Row
 
-    counts = {}
-    for category, directory in CATEGORY_DIRS.items():
-        if not os.path.isdir(directory):
-            continue
-        tracks = db.execute(
-            "SELECT id, filename, duration FROM tracks WHERE category = ? ORDER BY id",
-            (category,),
-        ).fetchall()
-        if not tracks:
-            continue
-        print(f"-- {category} ({len(tracks)} fichier(s)) --")
-        for track in tracks:
-            status = convert_one(db, category, track, args.dry_run)
-            counts[status] = counts.get(status, 0) + 1
+    bitrate = args.bitrate
+    if bitrate is None:
+        row = db.execute("SELECT value FROM settings WHERE key = 'audio_convert_bitrate'").fetchone()
+        bitrate = int(row["value"]) if row else 192
 
+    counts, total = library_convert.run(db, dry_run=args.dry_run, bitrate_kbps=bitrate, on_line=print)
     db.close()
 
     print()
+    print(f"Bitrate cible : {bitrate}kbps")
     print("Resume :", ", ".join(f"{v} {k}" for k, v in sorted(counts.items())) or "aucun fichier")
     if args.dry_run and counts.get("would_convert"):
         print("Aucun fichier modifie (--dry-run). Relancer sans --dry-run pour convertir.")

@@ -101,6 +101,96 @@
 </section>
 
 <section class="card">
+  <h2>Format audio de la bibliotheque</h2>
+  <p class="hint">
+    Format applique automatiquement a chaque import (Bibliotheque, Jingles, Pubs) pour eviter que
+    Liquidsoap ait a decoder/reechantillonner des fichiers heterogenes a chaque transition. La
+    frequence (44100Hz) est fixee, alignee sur le pipeline Liquidsoap (voir <code>radio.liq</code>) -
+    seul le bitrate est reglable ici.
+  </p>
+
+  <form method="post" class="settings-form">
+    <input type="hidden" name="form_name" value="audio_format">
+
+    <label>Format
+      <select disabled>
+        <option selected>MP3 (seul format supporte actuellement)</option>
+      </select>
+    </label>
+
+    <label>Bitrate
+      <select name="audio_convert_bitrate">
+        {% set current_bitrate = settings.get("audio_convert_bitrate", "192")|int %}
+        {% for kbps in [128, 160, 192, 224, 256, 320] %}
+        <option value="{{ kbps }}" {{ "selected" if current_bitrate == kbps else "" }}>{{ kbps }} kbps</option>
+        {% endfor %}
+      </select>
+    </label>
+
+    <button type="submit" class="btn btn-primary">Enregistrer</button>
+  </form>
+
+  <form method="post" action="{{ url_for('settings.relancer_conversion') }}" id="relancer-conversion-form"
+        class="inline-form" style="{{ '' if (conversion_pending or conversion_running) else 'display:none;' }}">
+    <p class="hint" id="conversion-hint" style="margin-bottom: 8px;">
+      {% if conversion_running %}
+        Conversion en cours...
+      {% else %}
+        Le bitrate cible a change : les fichiers deja importes n'ont pas encore ete reconvertis.
+      {% endif %}
+    </p>
+    <button type="submit" class="btn btn-secondary" id="relancer-conversion-btn" {{ "disabled" if conversion_running else "" }}>
+      {{ "Conversion en cours..." if conversion_running else "Relancer la conversion de la bibliotheque" }}
+    </button>
+  </form>
+
+  <script>
+    (function () {
+      var form = document.getElementById("relancer-conversion-form");
+      var hint = document.getElementById("conversion-hint");
+      var btn = document.getElementById("relancer-conversion-btn");
+      if (!form || !hint || !btn) return;
+
+      var running = {{ "true" if conversion_running else "false" }};
+      var timer = null;
+
+      function refresh() {
+        fetch("{{ url_for('settings.api_library_convert_status') }}", { credentials: "same-origin" })
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            if (data.running) {
+              form.style.display = "block";
+              btn.disabled = true;
+              btn.textContent = "Conversion en cours...";
+              hint.textContent = "Conversion en cours" + (data.progress ? " (" + data.progress + ")" : "") + "...";
+              return;
+            }
+            btn.disabled = false;
+            btn.textContent = "Relancer la conversion de la bibliotheque";
+            if (running) {
+              // La conversion vient de se terminer : on affiche le resultat puis on arrete le sondage.
+              hint.textContent = data.summary || "Conversion terminee.";
+              running = false;
+              if (timer) { clearInterval(timer); timer = null; }
+              if (!data.pending) {
+                setTimeout(function () { form.style.display = "none"; }, 4000);
+              }
+            } else if (!data.pending) {
+              form.style.display = "none";
+            }
+          })
+          .catch(function () { /* ignore - on reessaiera au prochain intervalle */ });
+      }
+
+      if (running) {
+        timer = setInterval(refresh, 3000);
+        refresh();
+      }
+    })();
+  </script>
+</section>
+
+<section class="card">
   <h2>Diffusion externe</h2>
   <p class="hint">
     En plus du flux local, relayez la radio vers un ou plusieurs serveurs Icecast

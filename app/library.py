@@ -87,6 +87,11 @@ def _upload_view(category):
         return redirect(url_for(f"library.{cfg['url']}"))
 
     allowed = current_app.config["ALLOWED_EXTENSIONS"]
+    try:
+        bitrate_kbps = int(database.get_setting("audio_convert_bitrate", "192"))
+    except (TypeError, ValueError):
+        bitrate_kbps = 192
+
     ok, ko = 0, 0
     for f in files:
         if not f or not f.filename:
@@ -94,7 +99,7 @@ def _upload_view(category):
         if not allowed_file(f.filename, allowed):
             ko += 1
             continue
-        filename, title, artist, duration = save_upload(f, category, _dir_for(category))
+        filename, title, artist, duration = save_upload(f, category, _dir_for(category), bitrate_kbps=bitrate_kbps)
         database.add_track(category, filename, title=title, artist=artist, duration=duration)
         ok += 1
 
