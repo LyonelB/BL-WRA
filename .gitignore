@@ -5,4 +5,3 @@ media/musiques/*
 media/jingles/*
 media/pubs/*
 !media/**/.gitkeep
-*.zip
