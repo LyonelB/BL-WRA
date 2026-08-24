@@ -4,10 +4,38 @@
 
 <div class="page-header">
   <h1>Reglages</h1>
-  <span class="pill {{ 'pill-ok' if liquidsoap_status else 'pill-down' }}">
-    {{ "Liquidsoap connecte" if liquidsoap_status else "Liquidsoap injoignable" }}
-  </span>
+  <div style="text-align: right;">
+    <span id="liquidsoap-status-pill" class="pill {{ 'pill-ok' if liquidsoap_status else 'pill-down' }}">
+      {{ "Liquidsoap connecte" if liquidsoap_status else "Liquidsoap injoignable" }}
+    </span>
+    <div id="liquidsoap-status-since" class="muted" style="font-size: 0.78rem; margin-top: 4px;">
+      {{ "demarre depuis " + liquidsoap_since if liquidsoap_since else "" }}
+    </div>
+  </div>
 </div>
+
+<script>
+(function () {
+  var pill = document.getElementById("liquidsoap-status-pill");
+  var sinceEl = document.getElementById("liquidsoap-status-since");
+  if (!pill || !sinceEl) return;
+
+  function refresh() {
+    fetch("{{ url_for('settings.api_liquidsoap_status') }}", { credentials: "same-origin" })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        pill.textContent = data.online ? "Liquidsoap connecte" : "Liquidsoap injoignable";
+        pill.className = "pill " + (data.online ? "pill-ok" : "pill-down");
+        sinceEl.textContent = data.since ? "demarre depuis " + data.since : "";
+      })
+      .catch(function () { /* ignore - on reessaiera au prochain intervalle */ });
+  }
+
+  refresh();
+  var timer = setInterval(refresh, 10000);
+  window.addEventListener("beforeunload", function () { clearInterval(timer); });
+})();
+</script>
 
 <section class="card">
   <h2>Rotation</h2>

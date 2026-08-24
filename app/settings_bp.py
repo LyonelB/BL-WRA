@@ -4,13 +4,29 @@ Reglages de rotation (frequence des jingles/pubs) et infos station.
 
 import subprocess
 
-from flask import Blueprint, current_app, flash, redirect, render_template, request, url_for
+from flask import Blueprint, current_app, flash, jsonify, redirect, render_template, request, url_for
 
 import database
 import liquidsoap_client
 from auth import login_required
 
 bp = Blueprint("settings", __name__)
+
+
+def _liquidsoap_service_since():
+    """Depuis quand liquidsoap-radio.service tourne (ActiveEnterTimestamp),
+    pour affichage seulement (voir /api/liquidsoap/status). Simple lecture
+    d'etat systemd, contrairement au redemarrage (redemarrer_liquidsoap
+    ci-dessous) ca ne necessite pas le sudo dedie de install/radio-sudoers."""
+    try:
+        result = subprocess.run(
+            ["systemctl", "show", "liquidsoap-radio", "--property=ActiveEnterTimestamp", "--value"],
+            capture_output=True, text=True, timeout=5,
+        )
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+        return None
+    value = (result.stdout or "").strip()
+    return value or None
 
 
 @bp.route("/reglages", methods=["GET", "POST"])
@@ -29,6 +45,7 @@ def reglages():
 
     settings = database.get_all_settings()
     liquidsoap_status = liquidsoap_client.ping(current_app.config["LIQUIDSOAP_API_URL"])
+    liquidsoap_since = _liquidsoap_service_since()
     relays = database.list_relays()
     pub_slots = database.list_pub_slots()
     active_pubs = database.list_tracks("pub", active_only=True)
@@ -37,11 +54,24 @@ def reglages():
         "reglages.html",
         settings=settings,
         liquidsoap_status=liquidsoap_status,
+        liquidsoap_since=liquidsoap_since,
         relays=relays,
         pub_slots=pub_slots,
         active_pubs=active_pubs,
         crossfade_needs_restart=crossfade_needs_restart,
     )
+
+
+@bp.route("/api/liquidsoap/status")
+@login_required
+def api_liquidsoap_status():
+    """Statut Liquidsoap en JSON, interroge en JavaScript depuis la page
+    Reglages (voir reglages.html) pour rafraichir la pastille et l'heure de
+    dernier demarrage sans recharger la page - utile juste apres un clic sur
+    "Redemarrer Liquidsoap maintenant" : le redemarrage prend quelques
+    secondes, la pastille etait jusqu'ici figee sur l'etat au chargement."""
+    online = liquidsoap_client.ping(current_app.config["LIQUIDSOAP_API_URL"])
+    return jsonify({"online": bool(online), "since": _liquidsoap_service_since()})
 
 
 @bp.route("/reglages/redemarrer-liquidsoap", methods=["POST"])
