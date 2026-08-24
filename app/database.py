@@ -374,7 +374,7 @@ def set_relay_active(relay_id, active):
 
 
 # --------------------------------------------------------------------------
-# Creneaux horaires de diffusion des pubs (Reglages -> Pubs planifiees).
+# Creneaux horaires de diffusion des pubs (Pubs -> Pubs planifiees).
 # Remplace l'ancien reglage "une pub toutes les M minutes" : a l'heure du
 # creneau (une fois par jour), les pubs cochees pour ce creneau sont
 # poussees, l'une apres l'autre, a la fin du titre en cours.

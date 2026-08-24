@@ -1,10 +1,11 @@
 """
-Creneaux horaires de diffusion des pubs (Reglages -> Pubs planifiees).
+Creneaux horaires de diffusion des pubs (page Pubs, section "Pubs
+planifiees" - voir library.html pour category == "pub").
 
-A chaque creneau actif correspond une heure et une liste de pubs qui
-passeront, l'une apres l'autre, a la fin du titre en cours ce jour-la
-(voir rotation._maybe_push_due_pub_slots). Remplace l'ancien reglage
-"une pub toutes les M minutes".
+A chaque creneau actif correspond une heure, des jours de la semaine, et une
+liste de pubs qui passeront, l'une apres l'autre, a la fin du titre en cours
+ce jour-la (voir rotation._maybe_push_due_pub_slots). Remplace l'ancien
+reglage "une pub toutes les M minutes".
 """
 
 from flask import Blueprint, flash, redirect, render_template, request, url_for
@@ -36,31 +37,31 @@ def _parse_days():
     return ",".join(sorted(days, key=int))
 
 
-@bp.route("/reglages/creneaux/ajouter", methods=["POST"])
+@bp.route("/pubs/creneaux/ajouter", methods=["POST"])
 @login_required
 def ajouter():
     time_str = request.form.get("time", "").strip()
     if not time_str:
         flash("L'heure du creneau est obligatoire.", "error")
-        return redirect(url_for("settings.reglages"))
+        return redirect(url_for("library.pubs"))
 
     days_str = _parse_days()
     if not days_str:
         flash("Selectionnez au moins un jour de diffusion.", "error")
-        return redirect(url_for("settings.reglages"))
+        return redirect(url_for("library.pubs"))
 
     database.add_pub_slot(time_str, days_str, _parse_track_ids())
     flash("Creneau ajoute.", "success")
-    return redirect(url_for("settings.reglages"))
+    return redirect(url_for("library.pubs"))
 
 
-@bp.route("/reglages/creneaux/<int:slot_id>/modifier", methods=["GET", "POST"])
+@bp.route("/pubs/creneaux/<int:slot_id>/modifier", methods=["GET", "POST"])
 @login_required
 def modifier(slot_id):
     slot = database.get_pub_slot(slot_id)
     if not slot:
         flash("Creneau introuvable.", "error")
-        return redirect(url_for("settings.reglages"))
+        return redirect(url_for("library.pubs"))
 
     if request.method == "POST":
         time_str = request.form.get("time", "").strip()
@@ -75,7 +76,7 @@ def modifier(slot_id):
 
         database.update_pub_slot(slot_id, time_str, days_str, _parse_track_ids())
         flash("Creneau modifie.", "success")
-        return redirect(url_for("settings.reglages"))
+        return redirect(url_for("library.pubs"))
 
     all_pubs = database.list_tracks("pub", active_only=True)
     assigned_ids = set(database.get_pub_slot_track_ids(slot_id))
@@ -84,18 +85,18 @@ def modifier(slot_id):
     )
 
 
-@bp.route("/reglages/creneaux/<int:slot_id>/supprimer", methods=["POST"])
+@bp.route("/pubs/creneaux/<int:slot_id>/supprimer", methods=["POST"])
 @login_required
 def supprimer(slot_id):
     database.delete_pub_slot(slot_id)
     flash("Creneau supprime.", "success")
-    return redirect(url_for("settings.reglages"))
+    return redirect(url_for("library.pubs"))
 
 
-@bp.route("/reglages/creneaux/<int:slot_id>/activer", methods=["POST"])
+@bp.route("/pubs/creneaux/<int:slot_id>/activer", methods=["POST"])
 @login_required
 def activer(slot_id):
     slot = database.get_pub_slot(slot_id)
     if slot:
         database.set_pub_slot_active(slot_id, not slot["active"])
-    return redirect(url_for("settings.reglages"))
+    return redirect(url_for("library.pubs"))

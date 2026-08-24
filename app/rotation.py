@@ -3,8 +3,9 @@ Logique de rotation : decide quand inserer un jingle ou une pub, a partir
 des notifications "nouveau titre" envoyees par Liquidsoap (radio.liq).
 
 Regle v2 :
-  - un jingle toutes les N musiques (reglage jingle_every_n_titles)
-  - les pubs sont programmees a heure fixe ("creneaux", Reglages -> Pubs
+  - un jingle toutes les N musiques (reglage jingle_every_n_titles, page
+    Jingles)
+  - les pubs sont programmees a heure fixe ("creneaux", page Pubs -> Pubs
     planifiees) plutot qu'a intervalle : a l'heure du creneau, on pousse
     toutes les pubs cochees pour ce creneau, l'une apres l'autre, a la fin
     du titre en cours (un creneau ne se declenche qu'une fois par jour)
@@ -88,7 +89,7 @@ def _maybe_trigger_rotation(app):
 
 def _maybe_push_due_pub_slots(app, base_url):
     """
-    Creneaux horaires (Reglages -> Pubs planifiees) : des que l'heure d'un
+    Creneaux horaires (Pubs -> Pubs planifiees) : des que l'heure d'un
     creneau actif est passee et qu'il ne s'est pas encore declenche
     aujourd'hui, on pousse toutes les pubs cochees pour ce creneau (encore
     actives), dans l'ordre. Comme ce webhook n'arrive qu'entre deux

@@ -1,5 +1,7 @@
 """
-Reglages de rotation (frequence des jingles/pubs) et infos station.
+Reglages generaux (infos station) et traitement audio. La rotation des
+jingles vit desormais sur la page Jingles (voir library.jingles_reglages)
+et la planification des pubs sur la page Pubs (voir pub_slots.py).
 """
 
 import subprocess
@@ -47,8 +49,6 @@ def reglages():
     liquidsoap_status = liquidsoap_client.ping(current_app.config["LIQUIDSOAP_API_URL"])
     liquidsoap_since = _liquidsoap_service_since()
     relays = database.list_relays()
-    pub_slots = database.list_pub_slots()
-    active_pubs = database.list_tracks("pub", active_only=True)
     crossfade_needs_restart = settings.get("audio_crossfade_pending_restart") == "1"
     return render_template(
         "reglages.html",
@@ -56,8 +56,6 @@ def reglages():
         liquidsoap_status=liquidsoap_status,
         liquidsoap_since=liquidsoap_since,
         relays=relays,
-        pub_slots=pub_slots,
-        active_pubs=active_pubs,
         crossfade_needs_restart=crossfade_needs_restart,
     )
 
@@ -103,16 +101,13 @@ def redemarrer_liquidsoap():
 
 
 def _save_rotation():
-    try:
-        jingle_every = max(0, int(request.form.get("jingle_every_n_titles", 4)))
-    except ValueError:
-        flash("Valeurs invalides.", "error")
-        return redirect(url_for("settings.reglages"))
-
+    # La rotation des jingles (jingle_every_n_titles) et la planification des
+    # pubs (creneaux) ont leur propre formulaire directement sur les pages
+    # Jingles/Pubs (voir library.jingles_reglages et pub_slots.py) - il ne
+    # reste ici que les infos generales de la station.
     station_name = request.form.get("station_name", "").strip() or "Ma Webradio"
     stream_url = request.form.get("stream_url", "").strip()
 
-    database.set_setting("jingle_every_n_titles", jingle_every)
     database.set_setting("station_name", station_name)
     database.set_setting("stream_url", stream_url)
     flash("Reglages enregistres.", "success")

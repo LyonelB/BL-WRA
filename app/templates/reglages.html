@@ -38,7 +38,11 @@
 </script>
 
 <section class="card">
-  <h2>Rotation</h2>
+  <h2>Station</h2>
+  <p class="hint">
+    La rotation des jingles se regle depuis <a href="{{ url_for('library.jingles') }}">Jingles</a>,
+    la planification des pubs depuis <a href="{{ url_for('library.pubs') }}">Pubs</a>.
+  </p>
   <form method="post" class="settings-form">
     <input type="hidden" name="form_name" value="rotation">
 
@@ -49,15 +53,6 @@
     <label>URL du flux (pour le lecteur du tableau de bord)
       <input type="text" name="stream_url" placeholder="http://192.168.1.123:8000/radio.mp3" value="{{ settings.get('stream_url', '') }}">
     </label>
-
-    <label>Un jingle toutes les
-      <div class="input-suffix">
-        <input type="number" min="0" name="jingle_every_n_titles" value="{{ settings.get('jingle_every_n_titles', 4) }}">
-        <span>musiques</span>
-      </div>
-    </label>
-
-    <p class="hint">Mettre 0 desactive l'insertion automatique de jingle (vous pouvez toujours en declencher un manuellement avec « Jouer maintenant »). Les pubs, elles, sont programmees a heure fixe ci-dessous.</p>
 
     <button type="submit" class="btn btn-primary">Enregistrer</button>
   </form>
@@ -103,83 +98,6 @@
       });
     })();
   </script>
-</section>
-
-<section class="card">
-  <h2>Pubs planifiees</h2>
-  <p class="hint">
-    A l'heure indiquee, les jours de la semaine coches, les pubs cochees
-    pour ce creneau passent l'une apres l'autre, a la fin du titre en cours
-    (un creneau ne se declenche qu'une fois par jour).
-  </p>
-
-  <table class="table">
-    <thead>
-      <tr><th>Heure</th><th>Jours</th><th>Pubs</th><th>Actif</th><th></th></tr>
-    </thead>
-    <tbody>
-      {% for entry in pub_slots %}
-      <tr class="{{ '' if entry.slot.active else 'row-inactive' }}">
-        <td>{{ entry.slot.time }}</td>
-        <td>{{ entry.slot.days | jours_creneau }}</td>
-        <td>
-          {% if entry.tracks %}
-            {% for t in entry.tracks %}{{ t.title or t.filename }}{% if not loop.last %}, {% endif %}{% endfor %}
-          {% else %}
-            <span class="muted">Aucune pub associee</span>
-          {% endif %}
-        </td>
-        <td>
-          <form method="post" action="{{ url_for('pub_slots.activer', slot_id=entry.slot.id) }}">
-            <button type="submit" class="toggle {{ 'toggle-on' if entry.slot.active else 'toggle-off' }}">
-              {{ "actif" if entry.slot.active else "inactif" }}
-            </button>
-          </form>
-        </td>
-        <td class="row-actions">
-          <a href="{{ url_for('pub_slots.modifier', slot_id=entry.slot.id) }}" class="btn btn-mini btn-secondary">Modifier</a>
-          <form method="post" action="{{ url_for('pub_slots.supprimer', slot_id=entry.slot.id) }}" onsubmit="return confirm('Supprimer ce creneau ?');">
-            <button type="submit" class="btn btn-mini btn-danger">Supprimer</button>
-          </form>
-        </td>
-      </tr>
-      {% else %}
-      <tr><td colspan="5" class="muted">Aucun creneau configure : aucune pub ne sera diffusee.</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
-
-  <h2 style="margin-top: 22px;">Ajouter un creneau</h2>
-  {% if active_pubs %}
-  <form method="post" action="{{ url_for('pub_slots.ajouter') }}" class="settings-form">
-    <label>Heure
-      <input type="time" name="time" required>
-    </label>
-    <label>Jours de diffusion
-      <div class="days-picker">
-        {% for value, label in [("1","Lun"),("2","Mar"),("3","Mer"),("4","Jeu"),("5","Ven"),("6","Sam"),("7","Dim")] %}
-        <label class="checkbox-list-item">
-          <input type="checkbox" name="days" value="{{ value }}" checked>
-          {{ label }}
-        </label>
-        {% endfor %}
-      </div>
-    </label>
-    <label>Pubs a diffuser a ce creneau
-      <div class="checkbox-list">
-        {% for t in active_pubs %}
-        <label class="checkbox-list-item">
-          <input type="checkbox" name="track_ids" value="{{ t.id }}">
-          {{ t.title or t.filename }}
-        </label>
-        {% endfor %}
-      </div>
-    </label>
-    <button type="submit" class="btn btn-primary">Ajouter</button>
-  </form>
-  {% else %}
-  <p class="hint">Ajoutez d'abord au moins une pub active depuis <a href="{{ url_for('library.pubs') }}">Pubs</a> pour pouvoir creer un creneau.</p>
-  {% endif %}
 </section>
 
 <section class="card">

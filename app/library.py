@@ -37,12 +37,12 @@ CATEGORY_CONFIG = {
     },
     "jingle": {
         "dir_key": "JINGLES_DIR", "url": "jingles", "label": "Jingles",
-        "hint": "Un jingle actif est insere automatiquement toutes les N musiques (reglable dans Reglages).",
+        "hint": "Un jingle actif est insere automatiquement toutes les N musiques (regle ci-dessous).",
         "show_jouer": True,
     },
     "pub": {
         "dir_key": "PUBS_DIR", "url": "pubs", "label": "Pubs",
-        "hint": "Une pub active est inseree automatiquement au minimum toutes les M minutes (reglable dans Reglages).",
+        "hint": "Les pubs actives passent aux creneaux horaires planifies ci-dessous.",
         "show_jouer": True,
     },
 }
@@ -57,6 +57,17 @@ def _list_view(category):
     tracks = database.list_tracks(category, search=search)
     counts = database.count_tracks().get(category, {"total": 0, "actifs": 0})
     cfg = CATEGORY_CONFIG[category]
+
+    # Reglages propres a chaque categorie, affiches sous la bibliotheque sur
+    # cette meme page (voir library.html) - deplaces depuis Reglages pour
+    # regrouper bibliotheque + planification au meme endroit.
+    extra = {}
+    if category == "jingle":
+        extra["jingle_every_n_titles"] = database.get_setting("jingle_every_n_titles", 4)
+    elif category == "pub":
+        extra["pub_slots"] = database.list_pub_slots()
+        extra["active_pubs"] = database.list_tracks("pub", active_only=True)
+
     return render_template(
         "library.html",
         tracks=tracks,
@@ -64,6 +75,7 @@ def _list_view(category):
         search=search or "",
         category=category,
         cfg=cfg,
+        **extra,
     )
 
 
@@ -229,6 +241,22 @@ def jingles_modifier(track_id):
 @login_required
 def jingles_jouer(track_id):
     return _play_now_view("jingle", track_id)
+
+
+@bp.route("/jingles/reglages", methods=["POST"])
+@login_required
+def jingles_reglages():
+    """Frequence d'insertion automatique des jingles - anciennement dans
+    Reglages, deplace ici pour rester avec la bibliotheque de jingles."""
+    try:
+        jingle_every = max(0, int(request.form.get("jingle_every_n_titles", 4)))
+    except ValueError:
+        flash("Valeur invalide.", "error")
+        return redirect(url_for("library.jingles"))
+
+    database.set_setting("jingle_every_n_titles", jingle_every)
+    flash("Reglages enregistres.", "success")
+    return redirect(url_for("library.jingles"))
 
 
 # --- Pubs -------------------------------------------------------------
