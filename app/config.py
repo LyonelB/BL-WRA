@@ -27,12 +27,20 @@ DB_PATH = os.environ.get("RADIO_DB_PATH", os.path.join(MEDIA_ROOT, "radio.db"))
 RELAYS_JSON_PATH = os.environ.get("RADIO_RELAYS_JSON", "/opt/radio/liquidsoap/relays.json")
 
 # Fichier lu par radio.liq au demarrage pour l'etat initial des 3 bascules de
-# traitement audio (voir /reglages, section "Traitement audio"). normalize
-# et blank_removal sont aussi bascules a chaud via l'API harbor /audio-fx ;
-# ce fichier ne sert alors qu'a retrouver le dernier etat choisi si
-# Liquidsoap redemarre independamment. crossfade, lui, n'est relu qu'au
-# demarrage (necessite systemctl restart liquidsoap-radio pour s'appliquer).
+# traitement audio (voir /reglages, section "Traitement audio") : normalize,
+# crossfade, blank_removal. Les 3 sont construites une seule fois au
+# demarrage du graphe audio (aucune n'est bascultable a chaud - voir le
+# commentaire "Traitement audio optionnel" dans radio.liq pour le pourquoi),
+# donc necessitent `systemctl restart liquidsoap-radio` pour s'appliquer
+# apres un changement dans Reglages (bouton "Redemarrer Liquidsoap
+# maintenant").
 AUDIO_FX_JSON_PATH = os.environ.get("RADIO_AUDIO_FX_JSON", "/opt/radio/liquidsoap/audio_fx.json")
+
+# Fichier lu par radio.liq au demarrage pour la frequence d'echantillonnage
+# du pipeline audio (voir /reglages, section "Format audio de la
+# bibliotheque" et settings.frame.audio.samplerate.set dans radio.liq).
+# Necessite aussi un redemarrage de Liquidsoap pour s'appliquer.
+AUDIO_FORMAT_JSON_PATH = os.environ.get("RADIO_AUDIO_FORMAT_JSON", "/opt/radio/liquidsoap/audio_format.json")
 
 # Cle de session Flask - a definir via variable d'environnement en prod
 SECRET_KEY = os.environ.get("RADIO_SECRET_KEY", "change-moi-en-production")
@@ -71,22 +79,33 @@ DEFAULT_SETTINGS = {
     "audio_normalize_enabled": "0",
     "audio_crossfade_enabled": "1",
     "audio_blank_removal_enabled": "0",
-    # "1" tant qu'un changement de fondu enchaine n'a pas ete applique par
-    # un redemarrage de Liquidsoap (voir bouton "Redemarrer Liquidsoap
-    # maintenant" dans Reglages -> Traitement audio).
-    "audio_crossfade_pending_restart": "0",
+    # "1" tant qu'un changement de traitement audio (normalize, crossfade ou
+    # blank_removal) n'a pas ete applique par un redemarrage de Liquidsoap
+    # (voir bouton "Redemarrer Liquidsoap maintenant" dans Reglages ->
+    # Traitement audio). Remplace l'ancienne cle
+    # "audio_crossfade_pending_restart" (crossfade etait alors le seul des
+    # 3 a necessiter un redemarrage).
+    "audio_fx_pending_restart": "0",
     # Format cible pour la normalisation de la bibliotheque, reglable depuis
     # Reglages -> Format audio (voir uploads.py pour le "pourquoi"). Le
     # format est fixe a mp3 pour l'instant (seul supporte par
-    # uploads.convert_to_mp3) ; seul le bitrate est reellement configurable.
+    # uploads.convert_to_mp3) ; bitrate et frequence sont eux reellement
+    # configurables. Seules 44100/48000Hz sont proposees (96000Hz n'est pas
+    # un format MP3 valide, voir uploads.py).
     "audio_convert_format": "mp3",
     "audio_convert_bitrate": "192",
-    # Dernier bitrate reellement applique a l'ensemble de la bibliotheque
-    # (mis a jour par library_convert.run, CLI ou bouton web) : permet a
-    # Reglages de detecter un ecart avec audio_convert_bitrate ci-dessus et
-    # d'afficher le bouton "Relancer la conversion" seulement si necessaire.
-    # Initialise a la meme valeur par defaut que audio_convert_bitrate pour
-    # qu'une installation neuve (rien encore importe) n'affiche pas le
-    # bouton inutilement.
+    "audio_convert_sample_rate": "44100",
+    # "1" tant qu'un changement de frequence n'a pas ete applique par un
+    # redemarrage de Liquidsoap (settings.frame.audio.samplerate.set n'est
+    # lu qu'au demarrage, voir radio.liq).
+    "audio_sample_rate_pending_restart": "0",
+    # Dernier bitrate/frequence reellement appliques a l'ensemble de la
+    # bibliotheque (mis a jour par library_convert.run, CLI ou bouton web) :
+    # permet a Reglages de detecter un ecart avec les valeurs cibles
+    # ci-dessus et d'afficher le bouton "Relancer la conversion" seulement
+    # si necessaire. Initialises aux memes valeurs par defaut que les
+    # reglages cibles pour qu'une installation neuve (rien encore importe)
+    # n'affiche pas le bouton inutilement.
     "audio_library_applied_bitrate": "192",
+    "audio_library_applied_sample_rate": "44100",
 }

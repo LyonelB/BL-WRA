@@ -66,47 +66,89 @@
     <input type="hidden" name="form_name" value="audio_fx">
 
     <label class="checkbox-list-item">
-      <input type="checkbox" id="audio_crossfade_enabled" name="audio_crossfade_enabled" {{ "checked" if settings.get("audio_crossfade_enabled") == "1" else "" }}>
-      Enchainement avec fondu (fade in / fade out) entre les titres
+      <input type="checkbox" class="audio-fx-toggle" id="audio_normalize_enabled" name="audio_normalize_enabled" {{ "checked" if settings.get("audio_normalize_enabled") == "1" else "" }}>
+      Normalisation de volume + compression/limiteur
+      <span class="badge badge-cpu">Charge CPU : moderee</span>
     </label>
-    <p class="hint">Necessite un redemarrage de Liquidsoap pour s'appliquer apres l'enregistrement (bouton ci-dessous).</p>
+
+    <label class="checkbox-list-item">
+      <input type="checkbox" class="audio-fx-toggle" id="audio_crossfade_enabled" name="audio_crossfade_enabled" {{ "checked" if settings.get("audio_crossfade_enabled") == "1" else "" }}>
+      Enchainement avec fondu (fade in / fade out) entre les titres
+      <span class="badge badge-cpu">Charge CPU : legere</span>
+    </label>
+
+    <label class="checkbox-list-item">
+      <input type="checkbox" class="audio-fx-toggle" id="audio_blank_removal_enabled" name="audio_blank_removal_enabled" {{ "checked" if settings.get("audio_blank_removal_enabled") == "1" else "" }}>
+      Detection et suppression des blancs
+      <span class="badge badge-cpu">Charge CPU : moderee</span>
+    </label>
 
     <p class="hint">
-      Normalisation de volume et suppression des blancs sont temporairement indisponibles
-      (une fuite memoire a ete constatee en production peu apres leur activation le 21/08 ;
-      elles reviendront une fois la cause identifiee et corrigee hors production).
+      Chaque traitement necessite un redemarrage de Liquidsoap pour s'appliquer apres l'enregistrement
+      (bouton ci-dessous, quelques secondes de coupure du flux). Normalisation et suppression des blancs
+      analysent le flux en continu, donc plus couteux en CPU qu'un simple fondu enchaine - a activer un a la
+      fois si votre serveur a des ressources limitees (ex. Raspberry Pi).
     </p>
 
     <button type="submit" class="btn btn-primary">Enregistrer</button>
   </form>
 
-  <form method="post" action="{{ url_for('settings.redemarrer_liquidsoap') }}" id="restart-liquidsoap-form" class="inline-form" style="{{ '' if crossfade_needs_restart else 'display:none;' }}">
-    <p class="hint" style="margin-bottom: 8px;">Le fondu enchaine a change et necessite un redemarrage de Liquidsoap pour s'appliquer (quelques secondes de coupure du flux).</p>
+  <form method="post" action="{{ url_for('settings.redemarrer_liquidsoap') }}" id="restart-liquidsoap-form" class="inline-form" style="{{ '' if audio_fx_needs_restart else 'display:none;' }}">
+    <p class="hint" style="margin-bottom: 8px;">Le traitement audio a change et necessite un redemarrage de Liquidsoap pour s'appliquer (quelques secondes de coupure du flux).</p>
     <button type="submit" class="btn btn-secondary">Redemarrer Liquidsoap maintenant</button>
   </form>
 
   <script>
     (function () {
-      var checkbox = document.getElementById("audio_crossfade_enabled");
+      var checkboxes = document.querySelectorAll(".audio-fx-toggle");
       var restartForm = document.getElementById("restart-liquidsoap-form");
-      if (!checkbox || !restartForm) return;
-      var initial = checkbox.checked;
+      if (!checkboxes.length || !restartForm) return;
+      var initial = {};
+      checkboxes.forEach(function (cb) { initial[cb.id] = cb.checked; });
       var savedNeedsRestart = restartForm.style.display !== "none";
-      checkbox.addEventListener("change", function () {
-        var changed = checkbox.checked !== initial;
+      function onChange() {
+        var changed = false;
+        checkboxes.forEach(function (cb) {
+          if (cb.checked !== initial[cb.id]) changed = true;
+        });
         restartForm.style.display = (changed || savedNeedsRestart) ? "block" : "none";
-      });
+      }
+      checkboxes.forEach(function (cb) { cb.addEventListener("change", onChange); });
     })();
   </script>
+</section>
+
+<section class="card">
+  <h2>Fiabilite</h2>
+  <p class="hint">
+    Liquidsoap redemarre automatiquement chaque nuit a 4h du matin (quelques secondes de coupure
+    du flux) pour repartir sur une base propre, meme si aucune derive memoire/CPU n'a fait planter
+    le service entre-temps. Voir le README, section "Fiabilite 24h/24 7j/7".
+  </p>
+  <p>
+    {% if preventive_restart_enabled is none %}
+      <span class="pill pill-down">Etat inconnu</span>
+      <span class="hint">Impossible d'interroger systemd (voir les journaux de radio-web).</span>
+    {% else %}
+      <span class="pill {{ 'pill-ok' if preventive_restart_enabled else 'pill-down' }}">
+        {{ "Actif" if preventive_restart_enabled else "Desactive" }}
+      </span>
+    {% endif %}
+  </p>
+  <form method="post" action="{{ url_for('settings.basculer_restart_preventif') }}">
+    <button type="submit" class="btn btn-secondary" {{ "disabled" if preventive_restart_enabled is none else "" }}>
+      {{ "Desactiver le redemarrage automatique" if preventive_restart_enabled else "Activer le redemarrage automatique" }}
+    </button>
+  </form>
 </section>
 
 <section class="card">
   <h2>Format audio de la bibliotheque</h2>
   <p class="hint">
     Format applique automatiquement a chaque import (Bibliotheque, Jingles, Pubs) pour eviter que
-    Liquidsoap ait a decoder/reechantillonner des fichiers heterogenes a chaque transition. La
-    frequence (44100Hz) est fixee, alignee sur le pipeline Liquidsoap (voir <code>radio.liq</code>) -
-    seul le bitrate est reglable ici.
+    Liquidsoap ait a decoder/reechantillonner des fichiers heterogenes a chaque transition. Changer la
+    frequence resynchronise aussi le pipeline Liquidsoap (voir <code>radio.liq</code>) et necessite donc
+    un redemarrage (bouton ci-dessous) - a l'inverse du bitrate, applicable sans redemarrer.
   </p>
 
   <form method="post" class="settings-form">
@@ -117,6 +159,16 @@
         <option selected>MP3 (seul format supporte actuellement)</option>
       </select>
     </label>
+
+    <label>Frequence d'echantillonnage
+      <select name="audio_convert_sample_rate">
+        {% set current_sample_rate = settings.get("audio_convert_sample_rate", "44100")|int %}
+        {% for hz in [44100, 48000] %}
+        <option value="{{ hz }}" {{ "selected" if current_sample_rate == hz else "" }}>{{ hz }} Hz</option>
+        {% endfor %}
+      </select>
+    </label>
+    <p class="hint">Seules 44100Hz et 48000Hz sont proposees : ce sont les deux seules frequences valides pour l'encodage MP3 utilise ici (96kHz, par exemple, n'est pas un format MP3 valide).</p>
 
     <label>Bitrate
       <select name="audio_convert_bitrate">
@@ -130,13 +182,18 @@
     <button type="submit" class="btn btn-primary">Enregistrer</button>
   </form>
 
+  <form method="post" action="{{ url_for('settings.redemarrer_liquidsoap') }}" class="inline-form" style="{{ '' if sample_rate_needs_restart else 'display:none;' }}">
+    <p class="hint" style="margin-bottom: 8px;">La frequence a change et necessite un redemarrage de Liquidsoap pour s'appliquer (quelques secondes de coupure du flux).</p>
+    <button type="submit" class="btn btn-secondary">Redemarrer Liquidsoap maintenant</button>
+  </form>
+
   <form method="post" action="{{ url_for('settings.relancer_conversion') }}" id="relancer-conversion-form"
         class="inline-form" style="{{ '' if (conversion_pending or conversion_running) else 'display:none;' }}">
     <p class="hint" id="conversion-hint" style="margin-bottom: 8px;">
       {% if conversion_running %}
         Conversion en cours...
       {% else %}
-        Le bitrate cible a change : les fichiers deja importes n'ont pas encore ete reconvertis.
+        Le format cible (bitrate ou frequence) a change : les fichiers deja importes n'ont pas encore ete reconvertis.
       {% endif %}
     </p>
     <button type="submit" class="btn btn-secondary" id="relancer-conversion-btn" {{ "disabled" if conversion_running else "" }}>

@@ -92,21 +92,33 @@ correspondante se met à jour automatiquement, sans redémarrage.
 ## Format audio de la bibliothèque
 
 Le pipeline audio de Liquidsoap tourne à une fréquence d'échantillonnage
-fixe (44100Hz, voir `radio.liq`). Une bibliothèque mélangeant des formats
-différents (MP3 44100Hz, MP3 48000Hz, WAV non compressé...) oblige
-Liquidsoap à décoder/rééchantillonner à la volée à chaque transition vers
-un fichier d'un format différent — identifié comme cause probable des
-avertissements `Latency is too high` observés en prod.
+fixe (44100Hz ou 48000Hz, réglable — voir plus bas). Une bibliothèque
+mélangeant des formats différents (MP3 44100Hz, MP3 48000Hz, WAV non
+compressé...) oblige Liquidsoap à décoder/rééchantillonner à la volée à
+chaque transition vers un fichier d'un format différent — identifié comme
+cause probable des avertissements `Latency is too high` observés en prod.
 
 Pour éviter ça, tout fichier importé depuis l'interface (Bibliothèque,
-Jingles, Pubs) est désormais automatiquement converti en **MP3
-192kbps/44100Hz/stéréo, sans pochette** (voir `app/uploads.py`,
+Jingles, Pubs) est désormais automatiquement converti en **MP3 stéréo, sans
+pochette**, à la fréquence et au bitrate configurés depuis Réglages ->
+Format audio (défauts : 192kbps/44100Hz — voir `app/uploads.py`,
 `convert_to_mp3`). Nécessite `ffmpeg` sur le serveur (installé par
 `install/install.sh` ; pour une installation existante :
 `sudo apt-get install -y ffmpeg`). Si `ffmpeg` est absent ou que la
 conversion échoue pour un fichier donné, celui-ci est conservé dans son
 format d'origine plutôt que de bloquer l'import — l'appli reste utilisable,
 mais ce fichier ne bénéficie pas de l'uniformisation.
+
+**Fréquence d'échantillonnage** : seules 44100Hz et 48000Hz sont proposées
+(les deux seules valides pour l'encodage MP3 utilisé ici — 96kHz, par
+exemple, n'est pas un format MP3 valide). Contrairement au bitrate,
+applicable immédiatement, changer la fréquence doit aussi resynchroniser le
+pipeline Liquidsoap lui-même (`settings.frame.audio.samplerate.set` dans
+`radio.liq`, relu uniquement au démarrage) : un bouton **« Redémarrer
+Liquidsoap maintenant »** apparaît dans Réglages dès que ce champ change.
+Après le redémarrage, relancez aussi la conversion de la bibliothèque (voir
+ci-dessous) pour que les fichiers déjà importés suivent la nouvelle
+fréquence.
 
 **Bibliothèque déjà en ligne avant ce changement** : un script de
 maintenance ponctuel, `app/convert_library.py`, convertit tous les fichiers
@@ -185,23 +197,29 @@ Liquidsoap sur l'ensemble du flux, chacun activable/désactivable
 indépendamment :
 
 - **Enchaînement avec fondu (fade in / fade out)** — plutôt qu'un
-  enchaînement sec entre les titres. Historiquement toujours actif ; c'est
-  le seul des trois réglages qui **nécessite un redémarrage de Liquidsoap**
-  pour s'appliquer : le fondu enchaîné a besoin de mettre en place son
-  propre système de bufferisation au démarrage du flux, il ne peut pas être
-  basculé à la volée. Un bouton **« Redémarrer Liquidsoap maintenant »**
-  apparaît dans l'interface dès que ce réglage a changé (pas besoin de SSH).
-  Il nécessite que `install/radio-sudoers` soit installé (`sudo
-  ./install.sh` le fait automatiquement sur une nouvelle installation ; sur
-  une installation existante, copiez-le une fois à la main — voir le
-  commentaire en tête du fichier).
-- **Normalisation de volume + compression/limiteur** et **détection et
-  suppression des blancs** — **temporairement indisponibles** (retirées le
-  21/08 suite à une fuite mémoire constatée en production peu après leur
-  activation ; voir le commentaire "ATTENTION" dans `radio.liq`). À
-  réintroduire une fois la cause identifiée hors production.
+  enchaînement sec entre les titres. Charge CPU légère.
+- **Normalisation de volume + compression/limiteur** — égalise le niveau
+  sonore entre les titres. Charge CPU modérée (analyse en continu).
+- **Détection et suppression des blancs** — coupe les silences en début/fin
+  de piste. Charge CPU modérée (analyse en continu).
 
-Le fondu enchaîné est sauvegardé dans `liquidsoap/audio_fx.json` (côté
+**Historique** : normalize et blank_removal avaient été retirés
+temporairement le 21/08 suite à une fuite mémoire constatée en production
+peu après leur activation (cause jamais confirmée avec certitude, mais le
+mécanisme de bascule à chaud utilisé à l'époque était suspecté).
+Réintroduits le 24/08 avec un changement délibérément conservateur : **les
+3 traitements nécessitent désormais un redémarrage de Liquidsoap pour
+s'appliquer** (plus aucun n'est basculé à chaud, contrairement à l'ancien
+mécanisme suspecté). Un bouton **« Redémarrer Liquidsoap maintenant »**
+apparaît dans l'interface dès qu'un réglage a changé (pas besoin de SSH).
+Il nécessite que `install/radio-sudoers` soit installé (`sudo ./install.sh`
+le fait automatiquement sur une nouvelle installation ; sur une
+installation existante, copiez-le une fois à la main — voir le commentaire
+en tête du fichier). Recommandé : n'activer qu'un traitement à la fois lors
+d'un premier test, et surveiller la mémoire (`free -h`, ou
+`systemctl status liquidsoap-radio`) dans les minutes/heures qui suivent.
+
+Les 3 réglages sont sauvegardés dans `liquidsoap/audio_fx.json` (côté
 serveur, hors dépôt) afin que Liquidsoap retrouve le bon état s'il redémarre
 indépendamment de l'appli web.
 
@@ -221,7 +239,12 @@ Plusieurs mécanismes y contribuent :
   exacte. Coupure du flux limitée à quelques secondes, à l'heure creuse.
   Changez l'heure dans `/etc/systemd/system/liquidsoap-radio-restart.timer`
   (`OnCalendar=`) puis `sudo systemctl daemon-reload && sudo systemctl
-  restart liquidsoap-radio-restart.timer`.
+  restart liquidsoap-radio-restart.timer`. Activable/désactivable directement
+  depuis Réglages -> Fiabilité (nécessite le sudo dédié, voir
+  `install/radio-sudoers` — une installation existante mise à jour via
+  `deploy.sh` doit recopier ce fichier une fois : `sudo cp
+  install/radio-sudoers /etc/sudoers.d/radio-wra && sudo chmod 0440
+  /etc/sudoers.d/radio-wra`).
 - **`deploy.sh` ne redémarre `liquidsoap-radio` que si `radio.liq` a
   réellement changé** (comparaison de hash avant/après copie, mot de passe
   Icecast réinjecté inclus) : une mise à jour qui ne touche que l'appli web
@@ -340,3 +363,12 @@ prio.push /opt/radio/media/jingles/xxx.mp3
 - Le tableau de bord utilise du "polling" SSE toutes les 2 secondes plutôt
   qu'un vrai push instantané — largement suffisant pour ce cas d'usage et
   plus simple à déployer de façon fiable derrière un reverse-proxy.
+
+## Roadmap
+
+- **Accents dans l'interface** : tous les templates HTML (`app/templates/`)
+  et messages Python (flash, logs) sont actuellement écrits sans accents
+  ("Reglages", "Redemarrer", "Frequence"...), par convention historique du
+  projet plutôt que par bug. À corriger dans un prochain correctif dédié —
+  chantier transverse (repasse sur l'ensemble des templates et des chaînes
+  de caractères côté Python), pas un simple changement de format de fichier.

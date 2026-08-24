@@ -36,18 +36,22 @@ def create_app():
     app.teardown_appcontext(database.close_db)
     database.init_db(app)
 
-    # Traitement audio (normalize/crossfade/blank_removal, voir
-    # liquidsoap/radio.liq) : au demarrage de l'appli, on re-ecrit
-    # audio_fx.json depuis les reglages en base (au cas ou le fichier
-    # manque, ex. premiere mise a jour depuis une version anterieure a
-    # cette fonctionnalite) et on repousse a chaud ceux qui le permettent,
-    # au cas ou Liquidsoap aurait ete redemarre independamment. Best-effort
-    # dans les deux cas : ca ne doit jamais empecher l'appli de demarrer.
+    # Traitement audio (normalize/crossfade/blank_removal) et frequence
+    # d'echantillonnage (voir liquidsoap/radio.liq) : au demarrage de
+    # l'appli, on re-ecrit audio_fx.json/audio_format.json depuis les
+    # reglages en base (au cas ou le fichier manque, ex. premiere mise a
+    # jour depuis une version anterieure a ces fonctionnalites) et on
+    # repousse a chaud ceux des traitements audio qui le permettent, au cas
+    # ou Liquidsoap aurait ete redemarre independamment. Best-effort dans
+    # tous les cas : ca ne doit jamais empecher l'appli de demarrer.
     with app.app_context():
         try:
             current_settings = database.get_all_settings()
             liquidsoap_client.write_audio_fx_file(
                 app.config["AUDIO_FX_JSON_PATH"], current_settings
+            )
+            liquidsoap_client.write_audio_format_file(
+                app.config["AUDIO_FORMAT_JSON_PATH"], current_settings
             )
             liquidsoap_client.sync_audio_fx(app.config["LIQUIDSOAP_API_URL"], current_settings)
         except OSError:

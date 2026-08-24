@@ -6,16 +6,19 @@ vers un format uniforme via ffmpeg.
 Pourquoi convertir : la bibliotheque melangeait des fichiers d'origines
 diverses (MP3 44100Hz, MP3 48000Hz, WAV non compresse...), alors que le
 pipeline audio de Liquidsoap tourne a frequence d'echantillonnage fixe
-(44100Hz, voir radio.liq). A chaque transition vers un fichier d'un format
-different, Liquidsoap doit reechantillonner/decoder a la volee, ce qui a ete
-identifie comme cause probable des avertissements "Latency is too high"
-observes en prod. On normalise donc systematiquement a l'import en MP3
-44100Hz/stereo (voir convert_to_mp3 ci-dessous), au bitrate configure dans
-Reglages -> Format audio (defaut 192kbps, DEFAULT_BITRATE_KBPS) ; la
-bibliotheque deja en ligne peut etre remise a niveau via le bouton
+(voir settings.frame.audio.samplerate.set dans radio.liq). A chaque
+transition vers un fichier d'un format different, Liquidsoap doit
+reechantillonner/decoder a la volee, ce qui a ete identifie comme cause
+probable des avertissements "Latency is too high" observes en prod. On
+normalise donc systematiquement a l'import en MP3/stereo (voir
+convert_to_mp3 ci-dessous), a la frequence et au bitrate configures dans
+Reglages -> Format audio (defauts DEFAULT_SAMPLE_RATE/DEFAULT_BITRATE_KBPS) ;
+la bibliotheque deja en ligne peut etre remise a niveau via le bouton
 "Relancer la conversion" de cette meme page, ou en ligne de commande avec
 convert_library.py (voir library_convert.py pour le moteur partage par les
-deux).
+deux). Changer la frequence necessite un redemarrage de Liquidsoap (comme
+le fondu enchaine) pour rester synchronise avec radio.liq - voir
+settings_bp.py, _save_audio_format.
 """
 
 import logging
@@ -30,14 +33,20 @@ log = logging.getLogger("uploads")
 CATEGORY_DIRS = {}  # rempli par app.py a partir de la config (musique/jingle/pub -> dossier)
 
 # Format cible pour toute la bibliotheque (voir docstring du module).
-# Frequence/canaux fixes (alignes sur le pipeline Liquidsoap, voir
-# radio.liq) : ne pas rendre configurables, c'est justement l'uniformite qui
-# evite le reechantillonnage a la volee. Le bitrate, lui, est reglable
-# depuis Reglages -> Format audio (voir settings_bp.py) ; DEFAULT_BITRATE_KBPS
-# ne sert que de repli si jamais aucun reglage n'est disponible (ex. appel
-# direct de convert_to_mp3 hors contexte appli).
-TARGET_SAMPLE_RATE = 44100
+# Canaux fixes a stereo. Frequence et bitrate sont reglables depuis
+# Reglages -> Format audio (voir settings_bp.py) ; les constantes DEFAULT_*
+# ci-dessous ne servent que de repli si jamais aucun reglage n'est
+# disponible (ex. appel direct de convert_to_mp3 hors contexte appli).
+# IMPORTANT : la frequence doit toujours correspondre a
+# settings.frame.audio.samplerate.set(...) dans radio.liq (voir
+# audio_format.json, ecrit par _save_audio_format dans settings_bp.py) -
+# sinon on recree exactement le probleme d'heterogeneite que cette
+# uniformisation est censee eviter. Seules 44100Hz et 48000Hz sont
+# proposees dans l'interface : ce sont les deux seules frequences valides
+# pour l'encodage MP3 (MPEG-1 Layer 3) courantes en diffusion (32kHz existe
+# aussi mais degraderait la qualite ; 96kHz n'est pas un format MP3 valide).
 TARGET_CHANNELS = 2
+DEFAULT_SAMPLE_RATE = 44100
 DEFAULT_BITRATE_KBPS = 192
 
 
@@ -70,22 +79,23 @@ def read_tags(filepath):
     return title, artist, duration
 
 
-def convert_to_mp3(src_path, dest_path, bitrate_kbps=None, timeout=120):
+def convert_to_mp3(src_path, dest_path, bitrate_kbps=None, sample_rate=None, timeout=120):
     """
-    Convertit src_path en MP3 44100Hz/stereo dans dest_path, au bitrate
-    demande (defaut DEFAULT_BITRATE_KBPS), tags ID3 (titre/artiste)
-    conserves mais pochette retiree (-vn : elle est stockee comme un flux
-    video attache, et alourdit inutilement chaque fichier pour un usage
-    radio). Renvoie True/False sans jamais lever : en cas d'echec (ffmpeg
-    absent, fichier corrompu...), l'appelant garde le fichier d'origine
-    plutot que de faire echouer l'import.
+    Convertit src_path en MP3/stereo dans dest_path, a la frequence et au
+    bitrate demandes (defauts DEFAULT_SAMPLE_RATE/DEFAULT_BITRATE_KBPS),
+    tags ID3 (titre/artiste) conserves mais pochette retiree (-vn : elle est
+    stockee comme un flux video attache, et alourdit inutilement chaque
+    fichier pour un usage radio). Renvoie True/False sans jamais lever : en
+    cas d'echec (ffmpeg absent, fichier corrompu...), l'appelant garde le
+    fichier d'origine plutot que de faire echouer l'import.
     """
     bitrate_kbps = bitrate_kbps or DEFAULT_BITRATE_KBPS
+    sample_rate = sample_rate or DEFAULT_SAMPLE_RATE
     cmd = [
         "ffmpeg", "-y", "-i", src_path,
         "-map", "0:a:0", "-vn",
         "-map_metadata", "0",
-        "-ar", str(TARGET_SAMPLE_RATE),
+        "-ar", str(sample_rate),
         "-ac", str(TARGET_CHANNELS),
         "-b:a", f"{bitrate_kbps}k",
         "-id3v2_version", "3",
@@ -107,13 +117,14 @@ def convert_to_mp3(src_path, dest_path, bitrate_kbps=None, timeout=120):
         return False
 
 
-def save_upload(file_storage, category, dest_dir, bitrate_kbps=None):
+def save_upload(file_storage, category, dest_dir, bitrate_kbps=None, sample_rate=None):
     """
-    Sauvegarde un fichier uploade dans dest_dir, converti en MP3 44100Hz/
-    stereo au bitrate demande (voir convert_to_mp3 ; bitrate_kbps vient en
-    pratique du reglage "audio_convert_bitrate", voir library._upload_view).
-    Si la conversion echoue pour une raison quelconque, le fichier d'origine
-    est conserve tel quel plutot que de bloquer l'import.
+    Sauvegarde un fichier uploade dans dest_dir, converti en MP3/stereo a la
+    frequence et au bitrate demandes (voir convert_to_mp3 ; ces deux valeurs
+    viennent en pratique des reglages "audio_convert_bitrate"/
+    "audio_convert_sample_rate", voir library._upload_view). Si la
+    conversion echoue pour une raison quelconque, le fichier d'origine est
+    conserve tel quel plutot que de bloquer l'import.
     Renvoie (filename, title, artist, duration).
     """
     os.makedirs(dest_dir, exist_ok=True)
@@ -135,7 +146,7 @@ def save_upload(file_storage, category, dest_dir, bitrate_kbps=None):
         # On convertit quand meme sur place (frequence/bitrate/pochette
         # potentiellement differents) : fichier temporaire puis remplacement.
         converted_tmp = os.path.join(dest_dir, f".convert-{tmp_filename}")
-        ok = convert_to_mp3(tmp_path, converted_tmp, bitrate_kbps=bitrate_kbps)
+        ok = convert_to_mp3(tmp_path, converted_tmp, bitrate_kbps=bitrate_kbps, sample_rate=sample_rate)
         if ok:
             os.replace(converted_tmp, tmp_path)
         else:
@@ -144,7 +155,7 @@ def save_upload(file_storage, category, dest_dir, bitrate_kbps=None):
         filename = tmp_filename
         final_path = tmp_path
     else:
-        ok = convert_to_mp3(tmp_path, mp3_path, bitrate_kbps=bitrate_kbps)
+        ok = convert_to_mp3(tmp_path, mp3_path, bitrate_kbps=bitrate_kbps, sample_rate=sample_rate)
         if ok:
             os.remove(tmp_path)
             filename = mp3_filename

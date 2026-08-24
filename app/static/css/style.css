@@ -171,6 +171,7 @@ code {
 .badge-jingle { background: rgba(240,180,41,0.18); color: var(--jingle); }
 .badge-pub { background: rgba(239,90,111,0.18); color: var(--pub); }
 .badge-inconnu { background: rgba(255,255,255,0.08); color: var(--text-muted); }
+.badge-cpu { background: rgba(240,180,41,0.18); color: var(--warn); }
 
 /* --- Stat tiles ------------------------------------------------------- */
 

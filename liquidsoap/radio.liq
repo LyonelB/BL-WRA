@@ -61,6 +61,16 @@ icecast_mount = "radio.mp3"
 # chaque enregistrement des reglages.
 audio_fx_path = "/opt/radio/liquidsoap/audio_fx.json"
 
+# Fichier lu une seule fois au demarrage pour la frequence d'echantillonnage
+# du pipeline audio (voir Reglages -> Format audio de la bibliotheque cote
+# appli web). DOIT rester synchronise avec la frequence de conversion
+# choisie la-bas (uploads.py/library_convert.py) : c'est justement
+# l'uniformite qui evite a Liquidsoap de reechantillonner a la volee a
+# chaque transition (cause identifiee des avertissements "Latency is too
+# high"). Ecrit par l'appli Flask a chaque enregistrement de ce reglage ;
+# necessite un redemarrage de Liquidsoap pour s'appliquer, comme crossfade.
+audio_format_path = "/opt/radio/liquidsoap/audio_format.json"
+
 # ---------------------------------------------------------------------------
 # Securite : le serveur telnet et l'API harbor ne doivent ecouter qu'en local
 # ---------------------------------------------------------------------------
@@ -70,6 +80,32 @@ settings.server.telnet.bind_addr.set("127.0.0.1")
 settings.server.telnet.port.set(1234)
 
 settings.harbor.bind_addrs.set(["127.0.0.1"])
+
+# ---------------------------------------------------------------------------
+# Frequence d'echantillonnage du pipeline audio : DOIT etre definie avant la
+# creation de toute source (playlists, request.queue...) ci-dessous, sinon
+# elle n'a aucun effet. 44100Hz ou 48000Hz uniquement (les deux seules
+# frequences valides pour l'encodage MP3 en sortie, voir uploads.py).
+# ---------------------------------------------------------------------------
+
+def load_audio_format() =
+  default = {sample_rate = 44100}
+  if file.exists(audio_format_path) then
+    try
+      let json.parse (parsed : {sample_rate: int}) = file.contents(audio_format_path)
+      parsed
+    catch _ : [error.json] do
+      log(label="audio_format", "audio_format.json invalide, valeur par defaut utilisee")
+      default
+    end
+  else
+    default
+  end
+end
+
+audio_format_initial = load_audio_format()
+
+settings.frame.audio.samplerate.set(audio_format_initial.sample_rate)
 
 # ---------------------------------------------------------------------------
 # Bibliotheques : playlists rechargees automatiquement des qu'un fichier est
@@ -89,29 +125,32 @@ prio = request.queue(id="prio")
 
 # ---------------------------------------------------------------------------
 # Traitement audio optionnel, active/desactivable depuis l'interface web
-# (Reglages -> Traitement audio).
+# (Reglages -> Traitement audio) : normalisation de volume + compression/
+# limiteur, fondu enchaine (crossfade), suppression des blancs.
 #
-# ATTENTION (21/08) : la normalisation/compression et la suppression des
-# blancs ont ete retirees temporairement du graphe audio ci-dessous suite a
-# une fuite memoire constatee en production (croissance ~75 Mo/minute,
-# confirmee par mesures repetees) peu apres leur activation. Cause exacte
-# non identifiee (le switch() utilise pour les basculer a chaud est
-# suspecte, mais pas confirme) ; a re-introduire seulement apres tests hors
-# production. Seul le fondu enchaine (crossfade) reste actif : c'est une
-# construction plus simple (un simple "if" a la construction du graphe, pas
-# de switch() ni d'operateur compress/normalize/blank.strip en continu) qui
-# n'a pas montre ce comportement.
+# HISTORIQUE (21/08) : normalize/blank_removal avaient ete retires
+# temporairement du graphe audio suite a une fuite memoire constatee en
+# production (croissance ~75 Mo/minute) peu apres leur activation. La cause
+# exacte n'a jamais ete confirmee, mais le mecanisme utilise a l'epoque pour
+# les basculer A CHAUD (un switch() entre version traitee/non traitee du
+# flux, pilote par l'API harbor /audio-fx) etait suspecte. Reintroduits ici
+# le 24/08 (a la demande explicite, hors production) avec un changement
+# deliberement conservateur : plus AUCUN des 3 traitements n'est bascule a
+# chaud. Comme crossfade avant eux, les 3 sont maintenant construits UNE
+# SEULE FOIS a la creation du graphe (simples "if", pas de switch()) et
+# necessitent donc un redemarrage de Liquidsoap pour s'appliquer apres un
+# changement dans Reglages (bouton "Redemarrer Liquidsoap maintenant").
+# C'est un compromis assume : moins pratique qu'une bascule instantanee,
+# mais on evite de re-introduire le mecanisme suspecte sans savoir s'il
+# etait vraiment en cause. Cote interface web, chaque traitement affiche un
+# avertissement d'usage CPU (voir reglages.html) - normalize et
+# blank_removal analysent en continu le flux (fenetre glissante), donc plus
+# couteux qu'un simple fondu.
 #
-# crossfade cree son propre "sous-horloge" interne a Liquidsoap
-# (bufferisation pour analyser le niveau sonore autour de chaque
-# transition) : il ne peut pas etre bascule a chaud sans redemarrage. Son
-# etat est donc lu une seule fois au demarrage depuis audio_fx.json, comme
-# "Diffusion externe" (relays.json) juste plus bas : changez-le depuis
-# Reglages puis `sudo systemctl restart liquidsoap-radio` (ou le bouton
-# "Redemarrer Liquidsoap maintenant" dans l'interface).
-#
-# audio_fx.json continue de stocker les 3 valeurs (ecrit par l'appli Flask),
-# mais seule "crossfade" est lue ici pour l'instant.
+# audio_fx.json est ecrit par l'appli Flask a chaque enregistrement des
+# reglages (voir settings_bp.py/liquidsoap_client.py) ; ce fichier est relu
+# ici une seule fois au demarrage, comme "Diffusion externe" (relays.json)
+# juste plus bas.
 # ---------------------------------------------------------------------------
 
 def load_audio_fx() =
@@ -139,11 +178,30 @@ audio_fx_initial = load_audio_fx()
 
 radio_sans_fondu = fallback(id="radio", track_sensitive=true, [prio, musiques_raw])
 
+# Ordre : suppression des blancs d'abord (nettoie le flux brut), puis fondu
+# enchaine (transitions), puis normalisation/compression en dernier (agit
+# sur le niveau du flux final, apres toute manipulation de transition).
+radio = radio_sans_fondu
+
+radio =
+  if audio_fx_initial.blank_removal then
+    blank.strip(radio)
+  else
+    radio
+  end
+
 radio =
   if audio_fx_initial.crossfade then
-    crossfade(radio_sans_fondu)
+    crossfade(radio)
   else
-    radio_sans_fondu
+    radio
+  end
+
+radio =
+  if audio_fx_initial.normalize then
+    normalize(compress.exponential(radio))
+  else
+    radio
   end
 
 radio = mksafe(radio)
@@ -197,9 +255,9 @@ prio.on_track(synchronous=false, fun (m) -> post_now_playing(m["category"], m))
 #   GET /skip
 #       -> passe immediatement au titre suivant
 #
-# (l'ancien endpoint /audio-fx, pour basculer normalize/blank_removal a
-# chaud, a ete retire temporairement en meme temps que ces 2 traitements -
-# voir la section "Traitement audio optionnel" plus haut)
+# (il n'y a volontairement plus d'endpoint /audio-fx pour basculer un
+# traitement audio a chaud - voir la section "Traitement audio optionnel"
+# plus haut : les 3 traitements necessitent maintenant un redemarrage)
 # ---------------------------------------------------------------------------
 
 # NB : les parametres sont nommes hreq/hresp (et non request/response) pour

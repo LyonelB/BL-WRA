@@ -23,12 +23,16 @@ AUDIO_FX_SETTINGS = {
     "audio_blank_removal_enabled": "blank_removal",
 }
 
-# ATTENTION (21/08) : normalize/blank_removal sont temporairement retires du
-# graphe audio dans radio.liq (fuite memoire constatee en production, voir
-# le commentaire "Traitement audio optionnel" dans radio.liq) - l'endpoint
-# harbor /audio-fx qui les bascultait a chaud a ete retire avec eux. Cet
-# ensemble reste donc vide pour l'instant ; seul crossfade existe (lu au
-# demarrage de Liquidsoap depuis audio_fx.json, jamais a chaud).
+# Depuis la reintroduction de normalize/blank_removal (voir le commentaire
+# "Traitement audio optionnel" dans radio.liq), les 3 traitements sont
+# construits une seule fois au demarrage du graphe audio - aucun n'est
+# bascultable a chaud (l'ancien mecanisme de bascule a chaud via switch()
+# est suspecte d'etre la cause de la fuite memoire constatee le 21/08, donc
+# volontairement pas reintroduit : tous les 3 necessitent desormais un
+# redemarrage de Liquidsoap pour s'appliquer, comme crossfade avant eux).
+# Cet ensemble reste donc vide - conserve pour permettre de re-basculer
+# facilement l'un d'eux en direct plus tard, si un jour reconfirme sans
+# risque.
 LIVE_TOGGLABLE_AUDIO_FX = set()
 
 
@@ -94,6 +98,24 @@ def write_audio_fx_file(path, settings):
         fx_name: str(settings.get(setting_key, "0")) in ("1", "true", "True")
         for setting_key, fx_name in AUDIO_FX_SETTINGS.items()
     }
+    tmp_path = f"{path}.tmp"
+    with open(tmp_path, "w", encoding="utf-8") as f:
+        json.dump(payload, f)
+    os.replace(tmp_path, path)
+
+
+def write_audio_format_file(path, settings):
+    """Ecrit la frequence d'echantillonnage cible dans le fichier JSON relu
+    par radio.liq au demarrage (settings.frame.audio.samplerate.set, voir
+    AUDIO_FORMAT_JSON_PATH dans config.py). Comme audio_fx.json, necessaire
+    meme si Liquidsoap n'est pas encore redemarre, pour qu'il retrouve la
+    bonne valeur s'il redemarre independamment de l'appli web.
+    """
+    try:
+        sample_rate = int(settings.get("audio_convert_sample_rate", "44100"))
+    except (TypeError, ValueError):
+        sample_rate = 44100
+    payload = {"sample_rate": sample_rate}
     tmp_path = f"{path}.tmp"
     with open(tmp_path, "w", encoding="utf-8") as f:
         json.dump(payload, f)

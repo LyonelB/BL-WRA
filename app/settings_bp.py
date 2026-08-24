@@ -42,6 +42,22 @@ def _liquidsoap_service_since():
     return value or None
 
 
+def _preventive_restart_enabled():
+    """Etat reel du timer liquidsoap-radio-restart.timer (redemarrage
+    preventif quotidien a 4h, voir install/liquidsoap-radio-restart.timer)
+    - lu directement depuis systemd plutot que stocke en base, pour ne
+    jamais afficher un etat perime si le timer a ete active/desactive
+    autrement que depuis l'interface (ex. en SSH)."""
+    try:
+        result = subprocess.run(
+            ["systemctl", "is-enabled", "liquidsoap-radio-restart.timer"],
+            capture_output=True, text=True, timeout=5,
+        )
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+        return None
+    return (result.stdout or "").strip() == "enabled"
+
+
 @bp.route("/reglages", methods=["GET", "POST"])
 @login_required
 def reglages():
@@ -62,12 +78,20 @@ def reglages():
     liquidsoap_status = liquidsoap_client.ping(current_app.config["LIQUIDSOAP_API_URL"])
     liquidsoap_since = _liquidsoap_service_since()
     relays = database.list_relays()
-    crossfade_needs_restart = settings.get("audio_crossfade_pending_restart") == "1"
+    audio_fx_needs_restart = settings.get("audio_fx_pending_restart") == "1"
+    sample_rate_needs_restart = settings.get("audio_sample_rate_pending_restart") == "1"
 
     convert_bitrate = settings.get("audio_convert_bitrate", "192")
     applied_bitrate = settings.get("audio_library_applied_bitrate")
-    conversion_pending = applied_bitrate is not None and applied_bitrate != convert_bitrate
+    convert_sample_rate = settings.get("audio_convert_sample_rate", "44100")
+    applied_sample_rate = settings.get("audio_library_applied_sample_rate")
+    conversion_pending = (
+        (applied_bitrate is not None and applied_bitrate != convert_bitrate)
+        or (applied_sample_rate is not None and applied_sample_rate != convert_sample_rate)
+    )
     conversion_running = database.get_state("library_convert_running", "0") == "1"
+
+    preventive_restart_enabled = _preventive_restart_enabled()
 
     return render_template(
         "reglages.html",
@@ -75,9 +99,11 @@ def reglages():
         liquidsoap_status=liquidsoap_status,
         liquidsoap_since=liquidsoap_since,
         relays=relays,
-        crossfade_needs_restart=crossfade_needs_restart,
+        audio_fx_needs_restart=audio_fx_needs_restart,
+        sample_rate_needs_restart=sample_rate_needs_restart,
         conversion_pending=conversion_pending,
         conversion_running=conversion_running,
+        preventive_restart_enabled=preventive_restart_enabled,
     )
 
 
@@ -91,11 +117,17 @@ def api_library_convert_status():
     settings = database.get_all_settings()
     convert_bitrate = settings.get("audio_convert_bitrate", "192")
     applied_bitrate = settings.get("audio_library_applied_bitrate")
+    convert_sample_rate = settings.get("audio_convert_sample_rate", "44100")
+    applied_sample_rate = settings.get("audio_library_applied_sample_rate")
+    pending = (
+        (applied_bitrate is not None and applied_bitrate != convert_bitrate)
+        or (applied_sample_rate is not None and applied_sample_rate != convert_sample_rate)
+    )
     return jsonify({
         "running": database.get_state("library_convert_running", "0") == "1",
         "progress": database.get_state("library_convert_progress", ""),
         "summary": database.get_state("library_convert_summary", ""),
-        "pending": applied_bitrate is not None and applied_bitrate != convert_bitrate,
+        "pending": pending,
     })
 
 
@@ -114,12 +146,16 @@ def relancer_conversion():
         bitrate = int(database.get_setting("audio_convert_bitrate", "192"))
     except (TypeError, ValueError):
         bitrate = 192
+    try:
+        sample_rate = int(database.get_setting("audio_convert_sample_rate", "44100"))
+    except (TypeError, ValueError):
+        sample_rate = 44100
 
     app = current_app._get_current_object()
 
     def worker():
         try:
-            _run_conversion_background(app, bitrate)
+            _run_conversion_background(app, bitrate, sample_rate)
         finally:
             _conversion_lock.release()
 
@@ -132,7 +168,7 @@ def relancer_conversion():
     return redirect(url_for("settings.reglages"))
 
 
-def _run_conversion_background(app, bitrate_kbps):
+def _run_conversion_background(app, bitrate_kbps, sample_rate):
     """Tourne dans un thread separe (voir relancer_conversion) : on ouvre
     notre propre contexte appli / connexion SQLite (celle de la requete qui
     a declenche le thread n'existe deja plus quand ce code s'execute)."""
@@ -147,7 +183,7 @@ def _run_conversion_background(app, bitrate_kbps):
 
         try:
             counts, total = library_convert.run(
-                db, dry_run=False, bitrate_kbps=bitrate_kbps,
+                db, dry_run=False, bitrate_kbps=bitrate_kbps, sample_rate=sample_rate,
                 on_line=log.info, on_progress=on_progress,
             )
             summary = ", ".join(f"{v} {k}" for k, v in sorted(counts.items())) or "aucun fichier"
@@ -175,7 +211,8 @@ def api_liquidsoap_status():
 @login_required
 def redemarrer_liquidsoap():
     """Redemarre liquidsoap-radio depuis l'interface (necessaire pour
-    appliquer un changement de fondu enchaine, voir audio_fx_initial dans
+    appliquer un changement de traitement audio ou de frequence
+    d'echantillonnage, voir audio_fx_initial/audio_format_initial dans
     radio.liq). Le service radio-web tourne en tant qu'utilisateur "radio",
     qui doit avoir le droit sudo dedie (voir install/radio-sudoers)."""
     try:
@@ -183,7 +220,8 @@ def redemarrer_liquidsoap():
             ["sudo", "/usr/bin/systemctl", "restart", "liquidsoap-radio"],
             check=True, capture_output=True, timeout=15, text=True,
         )
-        database.set_setting("audio_crossfade_pending_restart", "0")
+        database.set_setting("audio_fx_pending_restart", "0")
+        database.set_setting("audio_sample_rate_pending_restart", "0")
         flash("Liquidsoap redemarre.", "success")
     except subprocess.CalledProcessError as exc:
         flash(
@@ -194,6 +232,43 @@ def redemarrer_liquidsoap():
         )
     except subprocess.TimeoutExpired:
         flash("Le redemarrage de Liquidsoap prend plus de temps que prevu, verifiez manuellement.", "error")
+    except FileNotFoundError:
+        flash("Commande 'sudo' introuvable sur ce serveur.", "error")
+    return redirect(url_for("settings.reglages"))
+
+
+@bp.route("/reglages/restart-preventif", methods=["POST"])
+@login_required
+def basculer_restart_preventif():
+    """Active/desactive le timer liquidsoap-radio-restart.timer (redemarrage
+    preventif quotidien a 4h, voir install/liquidsoap-radio-restart.timer et
+    le README, section "Fiabilite 24h/24 7j/7"). Necessite le sudo dedie
+    (voir install/radio-sudoers)."""
+    currently_enabled = _preventive_restart_enabled()
+    action = "disable" if currently_enabled else "enable"
+    try:
+        subprocess.run(
+            ["sudo", "/usr/bin/systemctl", action, "--now", "liquidsoap-radio-restart.timer"],
+            check=True, capture_output=True, timeout=15, text=True,
+        )
+        if action == "enable":
+            flash("Redemarrage preventif quotidien (4h du matin) active.", "success")
+        else:
+            flash(
+                "Redemarrage preventif quotidien desactive. Attention : sans redemarrage "
+                "regulier, une derive memoire/CPU non detectee pourrait s'accumuler sans "
+                "intervention (voir README, section \"Fiabilite 24h/24 7j/7\").",
+                "success",
+            )
+    except subprocess.CalledProcessError as exc:
+        flash(
+            "Echec du changement : "
+            + (exc.stderr.strip() if exc.stderr else str(exc))
+            + ". Verifiez que /etc/sudoers.d/radio-wra est a jour (voir install/radio-sudoers).",
+            "error",
+        )
+    except subprocess.TimeoutExpired:
+        flash("La commande prend plus de temps que prevu, verifiez manuellement.", "error")
     except FileNotFoundError:
         flash("Commande 'sudo' introuvable sur ce serveur.", "error")
     return redirect(url_for("settings.reglages"))
@@ -214,23 +289,58 @@ def _save_rotation():
 
 
 def _save_audio_format():
-    """Bitrate cible pour la conversion de la bibliotheque (voir
-    uploads.py/library_convert.py). Le format est fixe a mp3 pour l'instant
-    (seul supporte par convert_to_mp3), pas de champ formulaire pour ca."""
+    """Bitrate et frequence cibles pour la conversion de la bibliotheque
+    (voir uploads.py/library_convert.py). Le format est fixe a mp3 pour
+    l'instant (seul supporte par convert_to_mp3), pas de champ formulaire
+    pour ca. Changer la frequence necessite aussi de resynchroniser
+    radio.liq (settings.frame.audio.samplerate.set, relu au demarrage
+    seulement) : on ecrit audio_format.json et on memorise qu'un
+    redemarrage de Liquidsoap reste a faire, comme pour audio_fx."""
     try:
         bitrate = int(request.form.get("audio_convert_bitrate", "192"))
     except (TypeError, ValueError):
         bitrate = 192
     bitrate = max(64, min(320, bitrate))  # bornes raisonnables pour du flux radio
 
+    try:
+        sample_rate = int(request.form.get("audio_convert_sample_rate", "44100"))
+    except (TypeError, ValueError):
+        sample_rate = 44100
+    if sample_rate not in (44100, 48000):
+        sample_rate = 44100
+
+    old_sample_rate = database.get_setting("audio_convert_sample_rate", "44100")
+
     database.set_setting("audio_convert_format", "mp3")
     database.set_setting("audio_convert_bitrate", str(bitrate))
-    flash("Reglages enregistres.", "success")
+    database.set_setting("audio_convert_sample_rate", str(sample_rate))
+
+    if str(sample_rate) != old_sample_rate:
+        database.set_setting("audio_sample_rate_pending_restart", "1")
+
+    try:
+        liquidsoap_client.write_audio_format_file(
+            current_app.config["AUDIO_FORMAT_JSON_PATH"], database.get_all_settings()
+        )
+    except OSError as exc:
+        flash(f"Reglages enregistres, mais audio_format.json n'a pas pu etre ecrit : {exc}", "error")
+        return redirect(url_for("settings.reglages"))
+
+    if str(sample_rate) != old_sample_rate:
+        flash(
+            "Reglages enregistres. La frequence a change : redemarrez Liquidsoap pour l'appliquer, "
+            "puis relancez la conversion de la bibliotheque ci-dessous.",
+            "success",
+        )
+    else:
+        flash("Reglages enregistres.", "success")
     return redirect(url_for("settings.reglages"))
 
 
 def _save_audio_fx():
+    old_normalize = database.get_setting("audio_normalize_enabled", "0")
     old_crossfade = database.get_setting("audio_crossfade_enabled", "1")
+    old_blank_removal = database.get_setting("audio_blank_removal_enabled", "0")
 
     audio_normalize_enabled = "1" if request.form.get("audio_normalize_enabled") else "0"
     audio_crossfade_enabled = "1" if request.form.get("audio_crossfade_enabled") else "0"
@@ -240,12 +350,19 @@ def _save_audio_fx():
     database.set_setting("audio_crossfade_enabled", audio_crossfade_enabled)
     database.set_setting("audio_blank_removal_enabled", audio_blank_removal_enabled)
 
-    # Le fondu enchaine n'est relu qu'au demarrage de Liquidsoap (voir
-    # radio.liq) : s'il a change, on memorise qu'un redemarrage reste a
-    # faire (bouton "Redemarrer Liquidsoap maintenant" ci-dessous), jusqu'a
-    # ce qu'il soit effectivement declenche.
-    if audio_crossfade_enabled != old_crossfade:
-        database.set_setting("audio_crossfade_pending_restart", "1")
+    # Aucun des 3 traitements n'est bascule a chaud (voir le commentaire
+    # "Traitement audio optionnel" dans radio.liq) : tous sont relus une
+    # seule fois au demarrage de Liquidsoap. Si l'un a change, on memorise
+    # qu'un redemarrage reste a faire (bouton "Redemarrer Liquidsoap
+    # maintenant" ci-dessous), jusqu'a ce qu'il soit effectivement
+    # declenche.
+    changed = (
+        audio_normalize_enabled != old_normalize
+        or audio_crossfade_enabled != old_crossfade
+        or audio_blank_removal_enabled != old_blank_removal
+    )
+    if changed:
+        database.set_setting("audio_fx_pending_restart", "1")
 
     updated_settings = database.get_all_settings()
     try:
@@ -256,17 +373,8 @@ def _save_audio_fx():
         flash(f"Reglages enregistres, mais audio_fx.json n'a pas pu etre ecrit : {exc}", "error")
         return redirect(url_for("settings.reglages"))
 
-    failed = liquidsoap_client.sync_audio_fx(
-        current_app.config["LIQUIDSOAP_API_URL"], updated_settings
-    )
-    if failed:
-        flash(
-            "Reglages enregistres ; Liquidsoap etait injoignable pour appliquer a chaud : "
-            + ", ".join(failed) + " (repris automatiquement a son prochain demarrage).",
-            "error",
-        )
-    elif audio_crossfade_enabled != old_crossfade:
-        flash("Reglages enregistres. Le fondu enchaine a change : redemarrez Liquidsoap pour l'appliquer.", "success")
+    if changed:
+        flash("Reglages enregistres. Le traitement audio a change : redemarrez Liquidsoap pour l'appliquer.", "success")
     else:
         flash("Reglages enregistres.", "success")
     return redirect(url_for("settings.reglages"))

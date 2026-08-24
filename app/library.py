@@ -91,6 +91,10 @@ def _upload_view(category):
         bitrate_kbps = int(database.get_setting("audio_convert_bitrate", "192"))
     except (TypeError, ValueError):
         bitrate_kbps = 192
+    try:
+        sample_rate = int(database.get_setting("audio_convert_sample_rate", "44100"))
+    except (TypeError, ValueError):
+        sample_rate = 44100
 
     ok, ko = 0, 0
     for f in files:
@@ -99,7 +103,9 @@ def _upload_view(category):
         if not allowed_file(f.filename, allowed):
             ko += 1
             continue
-        filename, title, artist, duration = save_upload(f, category, _dir_for(category), bitrate_kbps=bitrate_kbps)
+        filename, title, artist, duration = save_upload(
+            f, category, _dir_for(category), bitrate_kbps=bitrate_kbps, sample_rate=sample_rate
+        )
         database.add_track(category, filename, title=title, artist=artist, duration=duration)
         ok += 1
 

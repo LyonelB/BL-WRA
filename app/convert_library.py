@@ -23,9 +23,9 @@ Usage (sur le Raspberry Pi, une fois l'appli deployee) :
     sudo -u radio venv/bin/python3 convert_library.py --dry-run   # apercu
     sudo -u radio venv/bin/python3 convert_library.py             # execution
 
-Par defaut, le bitrate cible est celui configure dans Reglages -> Format
-audio (192kbps si jamais configure) ; --bitrate permet de forcer une autre
-valeur ponctuellement.
+Par defaut, le bitrate et la frequence cibles sont ceux configures dans
+Reglages -> Format audio (192kbps/44100Hz si jamais configures) ; --bitrate
+et --sample-rate permettent de forcer d'autres valeurs ponctuellement.
 
 IMPORTANT : a executer avec l'utilisateur "radio" (sudo -u radio), pas en
 root - sinon les fichiers convertis appartiendraient a root et l'appli web
@@ -62,6 +62,11 @@ def main():
         help="Force un bitrate cible en kbps (par defaut : celui configure dans "
              "Reglages -> Format audio, 192 si jamais configure).",
     )
+    parser.add_argument(
+        "--sample-rate", type=int, default=None, choices=[44100, 48000],
+        help="Force une frequence cible en Hz (par defaut : celle configuree dans "
+             "Reglages -> Format audio, 44100 si jamais configuree).",
+    )
     args = parser.parse_args()
 
     if not os.path.exists(config.DB_PATH):
@@ -76,11 +81,18 @@ def main():
         row = db.execute("SELECT value FROM settings WHERE key = 'audio_convert_bitrate'").fetchone()
         bitrate = int(row["value"]) if row else 192
 
-    counts, total = library_convert.run(db, dry_run=args.dry_run, bitrate_kbps=bitrate, on_line=print)
+    sample_rate = args.sample_rate
+    if sample_rate is None:
+        row = db.execute("SELECT value FROM settings WHERE key = 'audio_convert_sample_rate'").fetchone()
+        sample_rate = int(row["value"]) if row else 44100
+
+    counts, total = library_convert.run(
+        db, dry_run=args.dry_run, bitrate_kbps=bitrate, sample_rate=sample_rate, on_line=print
+    )
     db.close()
 
     print()
-    print(f"Bitrate cible : {bitrate}kbps")
+    print(f"Format cible : {sample_rate}Hz / {bitrate}kbps")
     print("Resume :", ", ".join(f"{v} {k}" for k, v in sorted(counts.items())) or "aucun fichier")
     if args.dry_run and counts.get("would_convert"):
         print("Aucun fichier modifie (--dry-run). Relancer sans --dry-run pour convertir.")

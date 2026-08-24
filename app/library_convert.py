@@ -1,7 +1,8 @@
 """
 Moteur partage de conversion de la bibliotheque (voir uploads.py pour le
-"pourquoi" : uniformiser musiques/jingles/pubs en MP3 44100Hz/stereo pour
-eviter le reechantillonnage a la volee par Liquidsoap).
+"pourquoi" : uniformiser musiques/jingles/pubs en MP3/stereo, a la
+frequence configuree, pour eviter le reechantillonnage a la volee par
+Liquidsoap).
 
 Utilise par deux appelants :
   - convert_library.py, script CLI a lancer manuellement en SSH ;
@@ -83,7 +84,7 @@ def probe(filepath):
     }
 
 
-def needs_conversion(filename, info, bitrate_kbps):
+def needs_conversion(filename, info, bitrate_kbps, sample_rate):
     if info is None:
         return False  # illisible : on ne touche pas, signale a part
     ext_ok = filename.lower().endswith(".mp3")
@@ -94,7 +95,7 @@ def needs_conversion(filename, info, bitrate_kbps):
     return not (
         ext_ok
         and info["codec_name"] == "mp3"
-        and info["sample_rate"] == uploads.TARGET_SAMPLE_RATE
+        and info["sample_rate"] == sample_rate
         and info["channels"] == uploads.TARGET_CHANNELS
         and not info["has_video"]
         and bitrate_ok
@@ -110,7 +111,7 @@ def _format_detail(info):
     return detail
 
 
-def convert_one(db, category, track, dry_run, bitrate_kbps, on_line=None):
+def convert_one(db, category, track, dry_run, bitrate_kbps, sample_rate, on_line=None):
     """Traite un track (dict-like avec id/filename/duration). Renvoie un
     statut parmi : missing, unreadable, skipped, would_convert, converted,
     failed."""
@@ -131,13 +132,13 @@ def convert_one(db, category, track, dry_run, bitrate_kbps, on_line=None):
         line(f"  [{category}] ILLISIBLE : {filename} (ignore, verifier le fichier manuellement)")
         return "unreadable"
 
-    if not needs_conversion(filename, info, bitrate_kbps):
+    if not needs_conversion(filename, info, bitrate_kbps, sample_rate):
         line(f"  [{category}] deja au format cible : {filename}")
         return "skipped"
 
     detail = _format_detail(info)
     if dry_run:
-        line(f"  [{category}] A CONVERTIR : {filename} ({detail} -> 44100Hz/2ch/mp3/{bitrate_kbps}kbps)")
+        line(f"  [{category}] A CONVERTIR : {filename} ({detail} -> {sample_rate}Hz/2ch/mp3/{bitrate_kbps}kbps)")
         return "would_convert"
 
     new_filename = filename if filename.lower().endswith(".mp3") else (
@@ -147,7 +148,7 @@ def convert_one(db, category, track, dry_run, bitrate_kbps, on_line=None):
     # sous le nom final (Liquidsoap scanne le dossier en continu).
     tmp_path = os.path.join(directory, f".convert-{new_filename}")
 
-    ok = uploads.convert_to_mp3(src_path, tmp_path, bitrate_kbps=bitrate_kbps)
+    ok = uploads.convert_to_mp3(src_path, tmp_path, bitrate_kbps=bitrate_kbps, sample_rate=sample_rate)
     if not ok:
         if os.path.exists(tmp_path):
             os.remove(tmp_path)
@@ -168,11 +169,11 @@ def convert_one(db, category, track, dry_run, bitrate_kbps, on_line=None):
     )
     db.commit()
 
-    line(f"  [{category}] converti : {filename} ({detail}) -> {new_filename} (44100Hz/2ch/mp3/{bitrate_kbps}kbps)")
+    line(f"  [{category}] converti : {filename} ({detail}) -> {new_filename} ({sample_rate}Hz/2ch/mp3/{bitrate_kbps}kbps)")
     return "converted"
 
 
-def run(db, dry_run=False, bitrate_kbps=None, on_line=None, on_progress=None):
+def run(db, dry_run=False, bitrate_kbps=None, sample_rate=None, on_line=None, on_progress=None):
     """
     Parcourt toute la bibliotheque (musiques/jingles/pubs) et convertit ce
     qui ne colle pas au format cible. on_line(str) recoit une ligne de log
@@ -181,6 +182,7 @@ def run(db, dry_run=False, bitrate_kbps=None, on_line=None, on_progress=None):
     Renvoie (counts, total) ou counts est un dict statut -> nombre.
     """
     bitrate_kbps = bitrate_kbps or uploads.DEFAULT_BITRATE_KBPS
+    sample_rate = sample_rate or uploads.DEFAULT_SAMPLE_RATE
 
     all_tracks = []
     for category, directory in CATEGORY_DIRS.items():
@@ -199,20 +201,24 @@ def run(db, dry_run=False, bitrate_kbps=None, on_line=None, on_progress=None):
         if on_line and category != current_category:
             current_category = category
             on_line(f"-- {category} --")
-        status = convert_one(db, category, track, dry_run, bitrate_kbps, on_line=on_line)
+        status = convert_one(db, category, track, dry_run, bitrate_kbps, sample_rate, on_line=on_line)
         counts[status] = counts.get(status, 0) + 1
         if on_progress:
             on_progress(i, total)
 
     if not dry_run and total:
-        # Memorise le bitrate reellement applique a toute la bibliotheque :
-        # permet a Reglages de savoir si un ecart existe avec le bitrate
-        # cible configure (audio_convert_bitrate) et donc si le bouton
-        # "Relancer la conversion" doit s'afficher.
-        db.execute(
-            "INSERT INTO settings (key, value) VALUES ('audio_library_applied_bitrate', ?) "
+        # Memorise le bitrate ET la frequence reellement appliques a toute la
+        # bibliotheque : permet a Reglages de savoir si un ecart existe avec
+        # les valeurs cibles configurees (audio_convert_bitrate/
+        # audio_convert_sample_rate) et donc si le bouton "Relancer la
+        # conversion" doit s'afficher.
+        db.executemany(
+            "INSERT INTO settings (key, value) VALUES (?, ?) "
             "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-            (str(bitrate_kbps),),
+            [
+                ("audio_library_applied_bitrate", str(bitrate_kbps)),
+                ("audio_library_applied_sample_rate", str(sample_rate)),
+            ],
         )
         db.commit()
 
