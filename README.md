@@ -89,6 +89,44 @@ Chaque dossier est surveillé par Liquidsoap (`reload_mode="watch"`) : dès
 qu'un fichier est ajouté ou supprimé via l'interface, la playlist
 correspondante se met à jour automatiquement, sans redémarrage.
 
+## Format audio de la bibliothèque
+
+Le pipeline audio de Liquidsoap tourne à une fréquence d'échantillonnage
+fixe (44100Hz, voir `radio.liq`). Une bibliothèque mélangeant des formats
+différents (MP3 44100Hz, MP3 48000Hz, WAV non compressé...) oblige
+Liquidsoap à décoder/rééchantillonner à la volée à chaque transition vers
+un fichier d'un format différent — identifié comme cause probable des
+avertissements `Latency is too high` observés en prod.
+
+Pour éviter ça, tout fichier importé depuis l'interface (Bibliothèque,
+Jingles, Pubs) est désormais automatiquement converti en **MP3
+192kbps/44100Hz/stéréo, sans pochette** (voir `app/uploads.py`,
+`convert_to_mp3`). Nécessite `ffmpeg` sur le serveur (installé par
+`install/install.sh` ; pour une installation existante :
+`sudo apt-get install -y ffmpeg`). Si `ffmpeg` est absent ou que la
+conversion échoue pour un fichier donné, celui-ci est conservé dans son
+format d'origine plutôt que de bloquer l'import — l'appli reste utilisable,
+mais ce fichier ne bénéficie pas de l'uniformisation.
+
+**Bibliothèque déjà en ligne avant ce changement** : un script de
+maintenance ponctuel, `app/convert_library.py`, convertit tous les fichiers
+existants au même format et met à jour la base en conséquence. À exécuter
+une fois sur le serveur, avec l'utilisateur `radio` (important : pas en
+root, sinon l'appli web ne pourrait plus gérer ensuite les fichiers
+convertis) :
+
+```bash
+cd /opt/radio/app
+sudo -u radio venv/bin/python3 convert_library.py --dry-run   # aperçu, aucune modification
+sudo -u radio venv/bin/python3 convert_library.py             # exécution
+```
+
+Le script est idempotent (relançable sans risque, il ignore ce qui est
+déjà au bon format) et sans danger pour le flux en cours : un fichier
+remplacé pendant qu'il est en cours de lecture par Liquidsoap continue de
+jouer normalement (comportement standard de Linux), seule sa prochaine
+lecture utilisera la version convertie.
+
 ## Installation
 
 Voir `install/install.sh` (Debian / Raspberry Pi OS). En résumé :

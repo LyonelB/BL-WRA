@@ -11,6 +11,10 @@ export DEBIAN_FRONTEND=noninteractive
 apt-get update
 apt-get install -y liquidsoap python3 python3-venv python3-pip nginx openssl avahi-daemon
 apt-get install -y icecast2
+# ffmpeg : utilise par l'appli web pour normaliser chaque fichier importe en
+# MP3 192kbps/44100Hz/stereo (voir app/uploads.py) - reduit le travail de
+# decodage/reechantillonnage de Liquidsoap a chaque transition.
+apt-get install -y ffmpeg
 
 echo "== 2. Verification de Liquidsoap =="
 # Il existe un bug connu de segmentation fault avec le paquet Debian de
