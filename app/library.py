@@ -34,16 +34,28 @@ CATEGORY_CONFIG = {
         "dir_key": "MUSIQUES_DIR", "url": "bibliotheque", "label": "Bibliotheque",
         "hint": "Les musiques sont jouees en boucle, dans un ordre aleatoire.",
         "show_jouer": False,
+        # Case a cocher "Actif" disponible directement sur la page de
+        # modification (voir library_edit.html), en plus du bouton
+        # actif/inactif deja present sur chaque ligne de la liste.
+        "editable_active": True,
     },
     "jingle": {
         "dir_key": "JINGLES_DIR", "url": "jingles", "label": "Jingles",
         "hint": "Un jingle actif est insere automatiquement toutes les N musiques (regle ci-dessous).",
         "show_jouer": True,
+        "editable_active": True,
     },
     "pub": {
         "dir_key": "PUBS_DIR", "url": "pubs", "label": "Pubs",
-        "hint": "Les pubs actives passent aux creneaux horaires planifies ci-dessous.",
+        "hint": "Une pub \"planifiee\" est assignee a au moins un creneau actif ci-dessous - c'est ce qui determine si elle sera diffusee, pas une case actif/inactif a part.",
         "show_jouer": True,
+        # Pas de case "actif" sur la page de modification pour les pubs :
+        # contrairement a musiques/jingles, le badge "Planifiee" est
+        # calcule (assignee a au moins un creneau actif, voir
+        # database.list_scheduled_pub_track_ids), pas un champ a cocher.
+        # Pour retirer une pub de la diffusion : la retirer de ses
+        # creneaux, ou supprimer le fichier.
+        "editable_active": False,
     },
 }
 
@@ -66,7 +78,11 @@ def _list_view(category):
         extra["jingle_every_n_titles"] = database.get_setting("jingle_every_n_titles", 4)
     elif category == "pub":
         extra["pub_slots"] = database.list_pub_slots()
-        extra["active_pubs"] = database.list_tracks("pub", active_only=True)
+        # Toutes les pubs sont proposees pour un creneau (plus de filtre
+        # "active" manuel cote pubs, voir scheduled_pub_ids ci-dessous et
+        # database.list_scheduled_pub_track_ids).
+        extra["all_pubs"] = database.list_tracks("pub")
+        extra["scheduled_pub_ids"] = database.list_scheduled_pub_track_ids()
 
     return render_template(
         "library.html",
@@ -151,6 +167,8 @@ def _edit_view(category, track_id):
         title = request.form.get("title", "").strip()
         artist = request.form.get("artist", "").strip()
         database.update_track_metadata(track_id, title, artist)
+        if cfg.get("editable_active"):
+            database.set_track_active(track_id, bool(request.form.get("active")))
         flash("Modifications enregistrees.", "success")
         return redirect(url_for(f"library.{cfg['url']}"))
 
@@ -288,12 +306,6 @@ def pubs_upload():
 @login_required
 def pubs_supprimer(track_id):
     return _delete_view("pub", track_id)
-
-
-@bp.route("/pubs/<int:track_id>/activer", methods=["POST"])
-@login_required
-def pubs_activer(track_id):
-    return _toggle_view("pub", track_id)
 
 
 @bp.route("/pubs/<int:track_id>/modifier", methods=["GET", "POST"])

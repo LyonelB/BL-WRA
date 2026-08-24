@@ -62,24 +62,24 @@
   <h2>Traitement audio</h2>
   <p class="hint">Traitements appliques par Liquidsoap sur l'ensemble du flux. Voir le detail dans <code>liquidsoap/radio.liq</code>.</p>
 
-  <form method="post" class="settings-form">
+  <form method="post" class="settings-form settings-form-wide">
     <input type="hidden" name="form_name" value="audio_fx">
 
     <label class="checkbox-list-item">
       <input type="checkbox" class="audio-fx-toggle" id="audio_normalize_enabled" name="audio_normalize_enabled" {{ "checked" if settings.get("audio_normalize_enabled") == "1" else "" }}>
-      Normalisation de volume + compression/limiteur
+      <span class="checkbox-list-text">Normalisation de volume + compression/limiteur</span>
       <span class="badge badge-cpu">Charge CPU : moderee</span>
     </label>
 
     <label class="checkbox-list-item">
       <input type="checkbox" class="audio-fx-toggle" id="audio_crossfade_enabled" name="audio_crossfade_enabled" {{ "checked" if settings.get("audio_crossfade_enabled") == "1" else "" }}>
-      Enchainement avec fondu (fade in / fade out) entre les titres
+      <span class="checkbox-list-text">Enchainement avec fondu (fade in / fade out) entre les titres</span>
       <span class="badge badge-cpu">Charge CPU : legere</span>
     </label>
 
     <label class="checkbox-list-item">
       <input type="checkbox" class="audio-fx-toggle" id="audio_blank_removal_enabled" name="audio_blank_removal_enabled" {{ "checked" if settings.get("audio_blank_removal_enabled") == "1" else "" }}>
-      Detection et suppression des blancs
+      <span class="checkbox-list-text">Detection et suppression des blancs</span>
       <span class="badge badge-cpu">Charge CPU : moderee</span>
     </label>
 

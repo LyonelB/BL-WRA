@@ -422,6 +422,22 @@ def get_pub_slot_tracks(slot_id):
     ).fetchall()
 
 
+def list_scheduled_pub_track_ids():
+    """Ensemble des id de pubs assignees a au moins un creneau actif (voir
+    pub_slots.active) - utilise pour le badge "Planifiee" en lecture seule
+    de la page Pubs (library.html). Contrairement a musiques/jingles, une
+    pub n'a plus de bascule actif/inactif manuelle depuis l'interface :
+    "planifiee" reflete uniquement son assignation reelle a un creneau, pas
+    un champ a cocher a part (voir aussi get_pub_slot_tracks, meme logique
+    au moment du declenchement reel)."""
+    db = get_db()
+    rows = db.execute(
+        "SELECT DISTINCT st.track_id FROM pub_slot_tracks st "
+        "JOIN pub_slots s ON s.id = st.slot_id WHERE s.active = 1"
+    ).fetchall()
+    return {r["track_id"] for r in rows}
+
+
 def _set_pub_slot_tracks(db, slot_id, track_ids):
     db.execute("DELETE FROM pub_slot_tracks WHERE slot_id = ?", (slot_id,))
     for pos, track_id in enumerate(track_ids):

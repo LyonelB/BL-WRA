@@ -4,7 +4,11 @@
 
 <div class="page-header">
   <h1>{{ cfg.label }}</h1>
+  {% if category == "pub" %}
+  <span class="pill">{{ scheduled_pub_ids|length }} / {{ counts.get('total', 0) }} planifiees</span>
+  {% else %}
   <span class="pill">{{ counts.get('actifs', 0) }} / {{ counts.get('total', 0) }} actifs</span>
+  {% endif %}
 </div>
 
 <p class="hint">{{ cfg.hint }}</p>
@@ -29,23 +33,30 @@
         <th>Artiste</th>
         <th>Duree</th>
         <th>Ajoute le</th>
-        <th>Actif</th>
+        <th>{{ "Planifiee" if category == "pub" else "Actif" }}</th>
         <th></th>
       </tr>
     </thead>
     <tbody>
       {% for t in tracks %}
-      <tr class="{{ '' if t.active else 'row-inactive' }}">
+      {% set is_scheduled = category == "pub" and t.id in scheduled_pub_ids %}
+      <tr class="{{ '' if (is_scheduled if category == 'pub' else t.active) else 'row-inactive' }}">
         <td>{{ t.title or t.filename }}</td>
         <td>{{ t.artist or "" }}</td>
         <td>{{ t.duration | duree }}</td>
         <td>{{ t.uploaded_at[:10] }}</td>
         <td>
+          {% if category == "pub" %}
+          <span class="pill {{ 'pill-ok' if is_scheduled else 'pill-down' }}">
+            {{ "planifiee" if is_scheduled else "non planifiee" }}
+          </span>
+          {% else %}
           <form method="post" action="{{ url_for('library.' ~ cfg.url ~ '_activer', track_id=t.id) }}">
             <button type="submit" class="toggle {{ 'toggle-on' if t.active else 'toggle-off' }}">
               {{ "actif" if t.active else "inactif" }}
             </button>
           </form>
+          {% endif %}
         </td>
         <td class="row-actions">
           <a href="{{ url_for('library.' ~ cfg.url ~ '_modifier', track_id=t.id) }}" class="btn btn-mini btn-secondary">Modifier</a>
@@ -128,7 +139,7 @@
   </table>
 
   <h2 style="margin-top: 22px;">Ajouter un creneau</h2>
-  {% if active_pubs %}
+  {% if all_pubs %}
   <form method="post" action="{{ url_for('pub_slots.ajouter') }}" class="settings-form">
     <label>Heure
       <input type="time" name="time" required>
@@ -145,7 +156,7 @@
     </label>
     <label>Pubs a diffuser a ce creneau
       <div class="checkbox-list">
-        {% for t in active_pubs %}
+        {% for t in all_pubs %}
         <label class="checkbox-list-item">
           <input type="checkbox" name="track_ids" value="{{ t.id }}">
           {{ t.title or t.filename }}
@@ -156,7 +167,7 @@
     <button type="submit" class="btn btn-primary">Ajouter</button>
   </form>
   {% else %}
-  <p class="hint">Ajoutez d'abord au moins une pub active ci-dessus pour pouvoir creer un creneau.</p>
+  <p class="hint">Ajoutez d'abord au moins une pub ci-dessus pour pouvoir creer un creneau.</p>
   {% endif %}
 </section>
 {% endif %}

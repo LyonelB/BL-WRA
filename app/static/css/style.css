@@ -224,6 +224,10 @@ input:focus { outline: none; border-color: var(--accent); }
 .input-suffix span { color: var(--text-muted); font-size: 0.85rem; }
 
 .settings-form { max-width: 420px; }
+/* Formulaires avec des lignes plus larges (case a cocher + texte + badge,
+   voir Reglages -> Traitement audio) : 420px les faisait passer a la ligne
+   inutilement alors que la carte a bien plus de place. */
+.settings-form-wide { max-width: 640px; }
 
 .checkbox-list {
   margin-top: 6px;
@@ -253,7 +257,9 @@ input:focus { outline: none; border-color: var(--accent); }
   color: var(--text);
   font-weight: 400;
 }
-.checkbox-list-item input[type="checkbox"] { width: auto; margin: 0; }
+.checkbox-list-item input[type="checkbox"] { width: auto; margin: 0; flex: 0 0 auto; }
+.checkbox-list-item .checkbox-list-text { flex: 1 1 auto; }
+.checkbox-list-item .badge-cpu { flex: 0 0 auto; white-space: nowrap; }
 
 .upload-form, .search-form { display: flex; gap: 10px; align-items: center; }
 .search-form { margin-bottom: 6px; }
