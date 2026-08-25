@@ -60,7 +60,7 @@
         </td>
         <td class="row-actions">
           <a href="{{ url_for('library.' ~ cfg.url ~ '_modifier', track_id=t.id) }}" class="btn btn-mini btn-secondary">Modifier</a>
-          {% if cfg.show_jouer %}
+          {% if show_jouer %}
           <form method="post" action="{{ url_for('library.' ~ cfg.url ~ '_jouer', track_id=t.id) }}">
             <button type="submit" class="btn btn-mini">Jouer maintenant</button>
           </form>
@@ -87,13 +87,30 @@
         <span>musiques</span>
       </div>
     </label>
-    <p class="hint">Mettre 0 désactive l'insertion automatique (vous pouvez toujours en déclencher un manuellement avec « Jouer maintenant » ci-dessus).</p>
+    <p class="hint">Mettre 0 désactive l'insertion automatique (vous pouvez toujours en déclencher un manuellement avec « Jouer maintenant » ci-dessus, sauf si désactivé ci-dessous).</p>
+    <label class="checkbox-list-item">
+      <input type="checkbox" name="play_now_enabled" {{ "checked" if play_now_enabled else "" }}>
+      Autoriser le bouton « Jouer maintenant » sur cette page
+    </label>
+    <p class="hint">À désactiver pour éviter les fausses manipulations si le bouton n'est pas utile au quotidien.</p>
     <button type="submit" class="btn btn-primary">Enregistrer</button>
   </form>
 </section>
 {% endif %}
 
 {% if category == "pub" %}
+<section class="card">
+  <h2>Réglages</h2>
+  <form method="post" action="{{ url_for('library.pubs_reglages') }}" class="settings-form">
+    <label class="checkbox-list-item">
+      <input type="checkbox" name="play_now_enabled" {{ "checked" if play_now_enabled else "" }}>
+      Autoriser le bouton « Jouer maintenant » sur cette page
+    </label>
+    <p class="hint">À désactiver pour éviter les fausses manipulations si le bouton n'est pas utile au quotidien.</p>
+    <button type="submit" class="btn btn-primary">Enregistrer</button>
+  </form>
+</section>
+
 <section class="card">
   <h2>Pubs planifiées</h2>
   <p class="hint">

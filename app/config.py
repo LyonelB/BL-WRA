@@ -62,6 +62,11 @@ MAX_UPLOAD_MB = int(os.environ.get("RADIO_MAX_UPLOAD_MB", "100"))
 DEFAULT_SETTINGS = {
     # un jingle toutes les N musiques
     "jingle_every_n_titles": "4",
+    # affichage du bouton "Jouer maintenant" sur les pages Jingles/Pubs -
+    # desactivable independamment sur chaque page pour eviter les fausses
+    # manips (voir library.py, _list_view/_play_now_view)
+    "jingle_play_now_enabled": "1",
+    "pub_play_now_enabled": "1",
     # les pubs sont programmees a heure fixe, voir la table pub_slots et
     # Reglages -> Pubs planifiees (plus de reglage d'intervalle ici)
     # nombre de secondes de fondu enchaine entre les titres (info only,

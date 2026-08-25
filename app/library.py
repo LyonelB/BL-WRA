@@ -64,11 +64,22 @@ def _dir_for(category):
     return current_app.config[CATEGORY_CONFIG[category]["dir_key"]]
 
 
+def _play_now_enabled(category):
+    """Le bouton "Jouer maintenant" peut etre desactive independamment sur
+    Jingles et Pubs (reglage jingle_play_now_enabled / pub_play_now_enabled)
+    pour eviter les fausses manips - en plus de show_jouer dans
+    CATEGORY_CONFIG qui dit si la categorie le supporte techniquement."""
+    if category not in ("jingle", "pub"):
+        return False
+    return database.get_setting(f"{category}_play_now_enabled", "1") == "1"
+
+
 def _list_view(category):
     search = request.args.get("q", "").strip() or None
     tracks = database.list_tracks(category, search=search)
     counts = database.count_tracks().get(category, {"total": 0, "actifs": 0})
     cfg = CATEGORY_CONFIG[category]
+    play_now_enabled = _play_now_enabled(category)
 
     # Reglages propres a chaque categorie, affiches sous la bibliotheque sur
     # cette meme page (voir library.html) - deplaces depuis Reglages pour
@@ -91,6 +102,8 @@ def _list_view(category):
         search=search or "",
         category=category,
         cfg=cfg,
+        show_jouer=cfg["show_jouer"] and play_now_enabled,
+        play_now_enabled=play_now_enabled,
         **extra,
     )
 
@@ -192,6 +205,12 @@ def _play_now_view(category, track_id):
     """Pour pubs/jingles : injecter immediatement ce fichier dans la file."""
     track = database.get_track(track_id)
     cfg = CATEGORY_CONFIG[category]
+    if not _play_now_enabled(category):
+        # Garde-fou cote serveur : le bouton est deja masque cote template
+        # quand ce reglage est desactive, mais on refuse aussi l'appel
+        # direct (page rechargee avant la desactivation, favori, etc.).
+        flash("Le bouton « Jouer maintenant » est désactivé sur cette page (réglages ci-dessous).", "error")
+        return redirect(url_for(f"library.{cfg['url']}"))
     if track and track["category"] == category:
         path = os.path.join(_dir_for(category), track["filename"])
         try:
@@ -284,6 +303,7 @@ def jingles_reglages():
         return redirect(url_for("library.jingles"))
 
     database.set_setting("jingle_every_n_titles", jingle_every)
+    database.set_setting("jingle_play_now_enabled", "1" if request.form.get("play_now_enabled") else "0")
     flash("Réglages enregistrés.", "success")
     return redirect(url_for("library.jingles"))
 
@@ -318,3 +338,13 @@ def pubs_modifier(track_id):
 @login_required
 def pubs_jouer(track_id):
     return _play_now_view("pub", track_id)
+
+
+@bp.route("/pubs/reglages", methods=["POST"])
+@login_required
+def pubs_reglages():
+    """Reglages propres a la page Pubs - pour l'instant juste l'activation
+    du bouton "Jouer maintenant" (voir jingles_reglages, meme principe)."""
+    database.set_setting("pub_play_now_enabled", "1" if request.form.get("play_now_enabled") else "0")
+    flash("Réglages enregistrés.", "success")
+    return redirect(url_for("library.pubs"))
