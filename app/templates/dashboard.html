@@ -5,12 +5,12 @@
 <div class="page-header">
   <h1>Tableau de bord</h1>
   <span class="pill {{ 'pill-ok' if liquidsoap_ok else 'pill-down' }}">
-    {{ "Liquidsoap connecte" if liquidsoap_ok else "Liquidsoap injoignable" }}
+    {{ "Liquidsoap connecté" if liquidsoap_ok else "Liquidsoap injoignable" }}
   </span>
 </div>
 
 <section class="card now-playing-card">
-  <p class="eyebrow">A l'antenne</p>
+  <p class="eyebrow">À l'antenne</p>
   <h2 id="np-title">{{ now_playing.title or "—" }}</h2>
   <p id="np-artist" class="muted">{{ now_playing.artist or "" }}</p>
   <span id="np-category" class="badge badge-{{ now_playing.category }}">{{ now_playing.category }}</span>
@@ -65,7 +65,7 @@
 </section>
 
 <section class="card">
-  <h2>Diffuse recemment</h2>
+  <h2>Diffusé récemment</h2>
   <table class="table">
     <thead>
       <tr><th>Heure</th><th>Type</th><th>Titre</th><th>Artiste</th></tr>
@@ -79,7 +79,7 @@
         <td>{{ p.artist or "" }}</td>
       </tr>
       {% else %}
-      <tr><td colspan="4" class="muted">Rien diffuse pour l'instant.</td></tr>
+      <tr><td colspan="4" class="muted">Rien diffusé pour l'instant.</td></tr>
       {% endfor %}
     </tbody>
   </table>

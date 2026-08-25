@@ -31,8 +31,8 @@ bp = Blueprint("library", __name__)
 
 CATEGORY_CONFIG = {
     "musique": {
-        "dir_key": "MUSIQUES_DIR", "url": "bibliotheque", "label": "Bibliotheque",
-        "hint": "Les musiques sont jouees en boucle, dans un ordre aleatoire.",
+        "dir_key": "MUSIQUES_DIR", "url": "bibliotheque", "label": "Bibliothèque",
+        "hint": "Les musiques sont jouées en boucle, dans un ordre aléatoire.",
         "show_jouer": False,
         # Case a cocher "Actif" disponible directement sur la page de
         # modification (voir library_edit.html), en plus du bouton
@@ -41,13 +41,13 @@ CATEGORY_CONFIG = {
     },
     "jingle": {
         "dir_key": "JINGLES_DIR", "url": "jingles", "label": "Jingles",
-        "hint": "Un jingle actif est insere automatiquement toutes les N musiques (regle ci-dessous).",
+        "hint": "Un jingle actif est inséré automatiquement toutes les N musiques (réglé ci-dessous).",
         "show_jouer": True,
         "editable_active": True,
     },
     "pub": {
         "dir_key": "PUBS_DIR", "url": "pubs", "label": "Pubs",
-        "hint": "Une pub \"planifiee\" est assignee a au moins un creneau actif ci-dessous - c'est ce qui determine si elle sera diffusee, pas une case actif/inactif a part.",
+        "hint": "Une pub \"planifiée\" est assignée à au moins un créneau actif ci-dessous - c'est ce qui détermine si elle sera diffusée, pas une case actif/inactif à part.",
         "show_jouer": True,
         # Pas de case "actif" sur la page de modification pour les pubs :
         # contrairement a musiques/jingles, le badge "Planifiee" est
@@ -99,7 +99,7 @@ def _upload_view(category):
     cfg = CATEGORY_CONFIG[category]
     files = request.files.getlist("fichiers")
     if not files or files == [None]:
-        flash("Aucun fichier selectionne.", "error")
+        flash("Aucun fichier sélectionné.", "error")
         return redirect(url_for(f"library.{cfg['url']}"))
 
     allowed = current_app.config["ALLOWED_EXTENSIONS"]
@@ -126,9 +126,9 @@ def _upload_view(category):
         ok += 1
 
     if ok:
-        flash(f"{ok} fichier(s) ajoute(s) a {cfg['label'].lower()}.", "success")
+        flash(f"{ok} fichier(s) ajouté(s) à {cfg['label'].lower()}.", "success")
     if ko:
-        flash(f"{ko} fichier(s) ignore(s) (format non supporte).", "error")
+        flash(f"{ko} fichier(s) ignoré(s) (format non supporté).", "error")
 
     return redirect(url_for(f"library.{cfg['url']}"))
 
@@ -144,7 +144,7 @@ def _delete_view(category, track_id):
         except OSError as exc:
             current_app.logger.warning("Suppression fichier impossible (%s): %s", path, exc)
         database.delete_track(track_id)
-        flash("Element supprime.", "success")
+        flash("Élément supprimé.", "success")
     return redirect(url_for(f"library.{cfg['url']}"))
 
 
@@ -160,7 +160,7 @@ def _edit_view(category, track_id):
     track = database.get_track(track_id)
     cfg = CATEGORY_CONFIG[category]
     if not track or track["category"] != category:
-        flash("Element introuvable.", "error")
+        flash("Élément introuvable.", "error")
         return redirect(url_for(f"library.{cfg['url']}"))
 
     if request.method == "POST":
@@ -169,7 +169,7 @@ def _edit_view(category, track_id):
         database.update_track_metadata(track_id, title, artist)
         if cfg.get("editable_active"):
             database.set_track_active(track_id, bool(request.form.get("active")))
-        flash("Modifications enregistrees.", "success")
+        flash("Modifications enregistrées.", "success")
         return redirect(url_for(f"library.{cfg['url']}"))
 
     return render_template("library_edit.html", track=track, cfg=cfg, category=category)
@@ -198,7 +198,7 @@ def _play_now_view(category, track_id):
             liquidsoap_client.push_file(current_app.config["LIQUIDSOAP_API_URL"], path, category=category)
             flash(f"« {track['title'] or track['filename']} » va passer.", "success")
         except liquidsoap_client.LiquidsoapUnavailable:
-            flash("Liquidsoap ne repond pas (verifiez que radio.liq tourne).", "error")
+            flash("Liquidsoap ne répond pas (vérifiez que radio.liq tourne).", "error")
     return redirect(url_for(f"library.{cfg['url']}"))
 
 
@@ -284,7 +284,7 @@ def jingles_reglages():
         return redirect(url_for("library.jingles"))
 
     database.set_setting("jingle_every_n_titles", jingle_every)
-    flash("Reglages enregistres.", "success")
+    flash("Réglages enregistrés.", "success")
     return redirect(url_for("library.jingles"))
 
 

@@ -1,15 +1,15 @@
 {% extends "base.html" %}
-{% block title %}Reglages{% endblock %}
+{% block title %}Réglages{% endblock %}
 {% block content %}
 
 <div class="page-header">
-  <h1>Reglages</h1>
+  <h1>Réglages</h1>
   <div style="text-align: right;">
     <span id="liquidsoap-status-pill" class="pill {{ 'pill-ok' if liquidsoap_status else 'pill-down' }}">
-      {{ "Liquidsoap connecte" if liquidsoap_status else "Liquidsoap injoignable" }}
+      {{ "Liquidsoap connecté" if liquidsoap_status else "Liquidsoap injoignable" }}
     </span>
     <div id="liquidsoap-status-since" class="muted" style="font-size: 0.78rem; margin-top: 4px;">
-      {{ "demarre depuis " + liquidsoap_since if liquidsoap_since else "" }}
+      {{ "démarré depuis " + liquidsoap_since if liquidsoap_since else "" }}
     </div>
   </div>
 </div>
@@ -24,9 +24,9 @@
     fetch("{{ url_for('settings.api_liquidsoap_status') }}", { credentials: "same-origin" })
       .then(function (r) { return r.json(); })
       .then(function (data) {
-        pill.textContent = data.online ? "Liquidsoap connecte" : "Liquidsoap injoignable";
+        pill.textContent = data.online ? "Liquidsoap connecté" : "Liquidsoap injoignable";
         pill.className = "pill " + (data.online ? "pill-ok" : "pill-down");
-        sinceEl.textContent = data.since ? "demarre depuis " + data.since : "";
+        sinceEl.textContent = data.since ? "démarré depuis " + data.since : "";
       })
       .catch(function () { /* ignore - on reessaiera au prochain intervalle */ });
   }
@@ -40,7 +40,7 @@
 <section class="card">
   <h2>Station</h2>
   <p class="hint">
-    La rotation des jingles se regle depuis <a href="{{ url_for('library.jingles') }}">Jingles</a>,
+    La rotation des jingles se règle depuis <a href="{{ url_for('library.jingles') }}">Jingles</a>,
     la planification des pubs depuis <a href="{{ url_for('library.pubs') }}">Pubs</a>.
   </p>
   <form method="post" class="settings-form">
@@ -60,7 +60,7 @@
 
 <section class="card">
   <h2>Traitement audio</h2>
-  <p class="hint">Traitements appliques par Liquidsoap sur l'ensemble du flux. Voir le detail dans <code>liquidsoap/radio.liq</code>.</p>
+  <p class="hint">Traitements appliqués par Liquidsoap sur l'ensemble du flux. Voir le détail dans <code>liquidsoap/radio.liq</code>.</p>
 
   <form method="post" class="settings-form settings-form-wide">
     <input type="hidden" name="form_name" value="audio_fx">
@@ -68,34 +68,34 @@
     <label class="checkbox-list-item">
       <input type="checkbox" class="audio-fx-toggle" id="audio_normalize_enabled" name="audio_normalize_enabled" {{ "checked" if settings.get("audio_normalize_enabled") == "1" else "" }}>
       <span class="checkbox-list-text">Normalisation de volume + compression/limiteur</span>
-      <span class="badge badge-cpu">Charge CPU : moderee</span>
+      <span class="badge badge-cpu">Charge CPU : modérée</span>
     </label>
 
     <label class="checkbox-list-item">
       <input type="checkbox" class="audio-fx-toggle" id="audio_crossfade_enabled" name="audio_crossfade_enabled" {{ "checked" if settings.get("audio_crossfade_enabled") == "1" else "" }}>
-      <span class="checkbox-list-text">Enchainement avec fondu (fade in / fade out) entre les titres</span>
-      <span class="badge badge-cpu">Charge CPU : legere</span>
+      <span class="checkbox-list-text">Enchaînement avec fondu (fade in / fade out) entre les titres</span>
+      <span class="badge badge-cpu">Charge CPU : légère</span>
     </label>
 
     <label class="checkbox-list-item">
       <input type="checkbox" class="audio-fx-toggle" id="audio_blank_removal_enabled" name="audio_blank_removal_enabled" {{ "checked" if settings.get("audio_blank_removal_enabled") == "1" else "" }}>
-      <span class="checkbox-list-text">Detection et suppression des blancs</span>
-      <span class="badge badge-cpu">Charge CPU : moderee</span>
+      <span class="checkbox-list-text">Détection et suppression des blancs</span>
+      <span class="badge badge-cpu">Charge CPU : modérée</span>
     </label>
 
     <p class="hint">
-      Chaque traitement necessite un redemarrage de Liquidsoap pour s'appliquer apres l'enregistrement
+      Chaque traitement nécessite un redémarrage de Liquidsoap pour s'appliquer après l'enregistrement
       (bouton ci-dessous, quelques secondes de coupure du flux). Normalisation et suppression des blancs
-      analysent le flux en continu, donc plus couteux en CPU qu'un simple fondu enchaine - a activer un a la
-      fois si votre serveur a des ressources limitees (ex. Raspberry Pi).
+      analysent le flux en continu, donc plus coûteux en CPU qu'un simple fondu enchaîné - à activer un à la
+      fois si votre serveur a des ressources limitées (ex. Raspberry Pi).
     </p>
 
     <button type="submit" class="btn btn-primary">Enregistrer</button>
   </form>
 
   <form method="post" action="{{ url_for('settings.redemarrer_liquidsoap') }}" id="restart-liquidsoap-form" class="inline-form" style="{{ '' if audio_fx_needs_restart else 'display:none;' }}">
-    <p class="hint" style="margin-bottom: 8px;">Le traitement audio a change et necessite un redemarrage de Liquidsoap pour s'appliquer (quelques secondes de coupure du flux).</p>
-    <button type="submit" class="btn btn-secondary">Redemarrer Liquidsoap maintenant</button>
+    <p class="hint" style="margin-bottom: 8px;">Le traitement audio a changé et nécessite un redémarrage de Liquidsoap pour s'appliquer (quelques secondes de coupure du flux).</p>
+    <button type="submit" class="btn btn-secondary">Redémarrer Liquidsoap maintenant</button>
   </form>
 
   <script>
@@ -119,36 +119,36 @@
 </section>
 
 <section class="card">
-  <h2>Fiabilite</h2>
+  <h2>Fiabilité</h2>
   <p class="hint">
-    Liquidsoap redemarre automatiquement chaque nuit a 4h du matin (quelques secondes de coupure
-    du flux) pour repartir sur une base propre, meme si aucune derive memoire/CPU n'a fait planter
-    le service entre-temps. Voir le README, section "Fiabilite 24h/24 7j/7".
+    Liquidsoap redémarre automatiquement chaque nuit à 4h du matin (quelques secondes de coupure
+    du flux) pour repartir sur une base propre, même si aucune dérive mémoire/CPU n'a fait planter
+    le service entre-temps. Voir le README, section "Fiabilité 24h/24 7j/7".
   </p>
   <p>
     {% if preventive_restart_enabled is none %}
-      <span class="pill pill-down">Etat inconnu</span>
+      <span class="pill pill-down">État inconnu</span>
       <span class="hint">Impossible d'interroger systemd (voir les journaux de radio-web).</span>
     {% else %}
       <span class="pill {{ 'pill-ok' if preventive_restart_enabled else 'pill-down' }}">
-        {{ "Actif" if preventive_restart_enabled else "Desactive" }}
+        {{ "Actif" if preventive_restart_enabled else "Désactivé" }}
       </span>
     {% endif %}
   </p>
   <form method="post" action="{{ url_for('settings.basculer_restart_preventif') }}">
     <button type="submit" class="btn btn-secondary" {{ "disabled" if preventive_restart_enabled is none else "" }}>
-      {{ "Desactiver le redemarrage automatique" if preventive_restart_enabled else "Activer le redemarrage automatique" }}
+      {{ "Désactiver le redémarrage automatique" if preventive_restart_enabled else "Activer le redémarrage automatique" }}
     </button>
   </form>
 </section>
 
 <section class="card">
-  <h2>Format audio de la bibliotheque</h2>
+  <h2>Format audio de la bibliothèque</h2>
   <p class="hint">
-    Format applique automatiquement a chaque import (Bibliotheque, Jingles, Pubs) pour eviter que
-    Liquidsoap ait a decoder/reechantillonner des fichiers heterogenes a chaque transition. Changer la
-    frequence resynchronise aussi le pipeline Liquidsoap (voir <code>radio.liq</code>) et necessite donc
-    un redemarrage (bouton ci-dessous) - a l'inverse du bitrate, applicable sans redemarrer.
+    Format appliqué automatiquement à chaque import (Bibliothèque, Jingles, Pubs) pour éviter que
+    Liquidsoap ait à décoder/rééchantillonner des fichiers hétérogènes à chaque transition. Changer la
+    fréquence resynchronise aussi le pipeline Liquidsoap (voir <code>radio.liq</code>) et nécessite donc
+    un redémarrage (bouton ci-dessous) - à l'inverse du bitrate, applicable sans redémarrer.
   </p>
 
   <form method="post" class="settings-form">
@@ -156,11 +156,11 @@
 
     <label>Format
       <select disabled>
-        <option selected>MP3 (seul format supporte actuellement)</option>
+        <option selected>MP3 (seul format supporté actuellement)</option>
       </select>
     </label>
 
-    <label>Frequence d'echantillonnage
+    <label>Fréquence d'échantillonnage
       <select name="audio_convert_sample_rate">
         {% set current_sample_rate = settings.get("audio_convert_sample_rate", "44100")|int %}
         {% for hz in [44100, 48000] %}
@@ -168,7 +168,7 @@
         {% endfor %}
       </select>
     </label>
-    <p class="hint">Seules 44100Hz et 48000Hz sont proposees : ce sont les deux seules frequences valides pour l'encodage MP3 utilise ici (96kHz, par exemple, n'est pas un format MP3 valide).</p>
+    <p class="hint">Seules 44100Hz et 48000Hz sont proposées : ce sont les deux seules fréquences valides pour l'encodage MP3 utilisé ici (96kHz, par exemple, n'est pas un format MP3 valide).</p>
 
     <label>Bitrate
       <select name="audio_convert_bitrate">
@@ -183,8 +183,8 @@
   </form>
 
   <form method="post" action="{{ url_for('settings.redemarrer_liquidsoap') }}" class="inline-form" style="{{ '' if sample_rate_needs_restart else 'display:none;' }}">
-    <p class="hint" style="margin-bottom: 8px;">La frequence a change et necessite un redemarrage de Liquidsoap pour s'appliquer (quelques secondes de coupure du flux).</p>
-    <button type="submit" class="btn btn-secondary">Redemarrer Liquidsoap maintenant</button>
+    <p class="hint" style="margin-bottom: 8px;">La fréquence a changé et nécessite un redémarrage de Liquidsoap pour s'appliquer (quelques secondes de coupure du flux).</p>
+    <button type="submit" class="btn btn-secondary">Redémarrer Liquidsoap maintenant</button>
   </form>
 
   <form method="post" action="{{ url_for('settings.relancer_conversion') }}" id="relancer-conversion-form"
@@ -193,11 +193,11 @@
       {% if conversion_running %}
         Conversion en cours...
       {% else %}
-        Le format cible (bitrate ou frequence) a change : les fichiers deja importes n'ont pas encore ete reconvertis.
+        Le format cible (bitrate ou fréquence) a changé : les fichiers déjà importés n'ont pas encore été reconvertis.
       {% endif %}
     </p>
     <button type="submit" class="btn btn-secondary" id="relancer-conversion-btn" {{ "disabled" if conversion_running else "" }}>
-      {{ "Conversion en cours..." if conversion_running else "Relancer la conversion de la bibliotheque" }}
+      {{ "Conversion en cours..." if conversion_running else "Relancer la conversion de la bibliothèque" }}
     </button>
   </form>
 
@@ -223,10 +223,10 @@
               return;
             }
             btn.disabled = false;
-            btn.textContent = "Relancer la conversion de la bibliotheque";
+            btn.textContent = "Relancer la conversion de la bibliothèque";
             if (running) {
               // La conversion vient de se terminer : on affiche le resultat puis on arrete le sondage.
-              hint.textContent = data.summary || "Conversion terminee.";
+              hint.textContent = data.summary || "Conversion terminée.";
               running = false;
               if (timer) { clearInterval(timer); timer = null; }
               if (!data.pending) {
@@ -251,7 +251,7 @@
   <h2>Diffusion externe</h2>
   <p class="hint">
     En plus du flux local, relayez la radio vers un ou plusieurs serveurs Icecast
-    publics. Un changement ici necessite de redemarrer Liquidsoap pour prendre
+    publics. Un changement ici nécessite de redémarrer Liquidsoap pour prendre
     effet : <code>sudo systemctl restart liquidsoap-radio</code>.
   </p>
 
@@ -279,7 +279,7 @@
         </td>
       </tr>
       {% else %}
-      <tr><td colspan="5" class="muted">Aucun serveur externe configure.</td></tr>
+      <tr><td colspan="5" class="muted">Aucun serveur externe configuré.</td></tr>
       {% endfor %}
     </tbody>
   </table>
@@ -287,9 +287,9 @@
   <h2 style="margin-top: 22px;">Ajouter un serveur</h2>
   <form method="post" action="{{ url_for('relays.ajouter') }}" class="settings-form">
     <label>Nom
-      <input type="text" name="name" placeholder="Mon hebergeur radio">
+      <input type="text" name="name" placeholder="Mon hébergeur radio">
     </label>
-    <label>Hote
+    <label>Hôte
       <input type="text" name="host" placeholder="stream.monhebergeur.fr" required>
     </label>
     <label>Port
@@ -309,12 +309,12 @@
 </section>
 
 <section class="card">
-  <h2>A propos de la diffusion</h2>
+  <h2>À propos de la diffusion</h2>
   <p>
-    Le moteur de diffusion (Liquidsoap) tourne independamment de cette appli web :
-    elle ne fait que lui indiquer quel jingle/quelle pub inserer, et etre informee
-    de ce qui joue. Si Liquidsoap est arrete, la radio s'arrete, mais l'appli web
-    reste utilisable pour preparer la bibliotheque.
+    Le moteur de diffusion (Liquidsoap) tourne indépendamment de cette appli web :
+    elle ne fait que lui indiquer quel jingle/quelle pub insérer, et être informée
+    de ce qui joue. Si Liquidsoap est arrêté, la radio s'arrête, mais l'appli web
+    reste utilisable pour préparer la bibliothèque.
   </p>
 </section>
 {% endblock %}

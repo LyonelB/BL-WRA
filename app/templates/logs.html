@@ -2,9 +2,9 @@
 {% block title %}Logs{% endblock %}
 {% block content %}
 <div class="page-header">
-  <h1>Logs systeme</h1>
+  <h1>Logs système</h1>
 </div>
-<p class="hint">Dernieres 100 lignes de journal (journalctl) des services radio-web et liquidsoap-radio.</p>
+<p class="hint">Dernières 100 lignes de journal (journalctl) des services radio-web et liquidsoap-radio.</p>
 
 <section class="card">
   <div class="logs-toolbar">
@@ -13,7 +13,7 @@
       <button type="button" class="btn btn-secondary btn-mini logs-filter" data-unit="web">Interface web</button>
       <button type="button" class="btn btn-secondary btn-mini logs-filter" data-unit="liquidsoap">Liquidsoap</button>
     </div>
-    <button type="button" class="btn btn-secondary btn-mini" id="logs-refresh">Rafraichir</button>
+    <button type="button" class="btn btn-secondary btn-mini" id="logs-refresh">Rafraîchir</button>
   </div>
   <div id="log-container" class="log-box">Chargement des logs…</div>
   <p class="hint" style="margin-top: 10px; margin-bottom: 0;">Actualisation automatique toutes les 30 secondes.</p>

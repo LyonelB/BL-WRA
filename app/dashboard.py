@@ -71,9 +71,9 @@ def now_playing_stream():
 def skip():
     try:
         liquidsoap_client.skip(current_app.config["LIQUIDSOAP_API_URL"])
-        flash("Titre suivant demande.", "success")
+        flash("Titre suivant demandé.", "success")
     except liquidsoap_client.LiquidsoapUnavailable:
-        flash("Liquidsoap ne repond pas.", "error")
+        flash("Liquidsoap ne répond pas.", "error")
     return redirect(url_for("dashboard.index"))
 
 

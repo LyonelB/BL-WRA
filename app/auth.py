@@ -62,11 +62,11 @@ def compte():
         if not check_password_hash(user["password_hash"], current):
             flash("Mot de passe actuel incorrect.", "error")
         elif len(new) < 8:
-            flash("Le nouveau mot de passe doit faire au moins 8 caracteres.", "error")
+            flash("Le nouveau mot de passe doit faire au moins 8 caractères.", "error")
         elif new != confirm:
             flash("La confirmation ne correspond pas.", "error")
         else:
             database.update_password(user["id"], generate_password_hash(new))
-            flash("Mot de passe mis a jour.", "success")
+            flash("Mot de passe mis à jour.", "success")
 
     return render_template("compte.html")

@@ -59,13 +59,13 @@ def ajouter():
         return redirect(url_for("settings.reglages"))
 
     if not host or not mount or not password:
-        flash("Hote, point de montage et mot de passe sont obligatoires.", "error")
+        flash("Hôte, point de montage et mot de passe sont obligatoires.", "error")
         return redirect(url_for("settings.reglages"))
 
     database.add_relay(name, host, port, mount, user, password)
     write_relays_json(current_app._get_current_object())
     flash(
-        "Serveur ajoute. Redemarrez Liquidsoap pour appliquer : "
+        "Serveur ajouté. Redémarrez Liquidsoap pour appliquer : "
         "sudo systemctl restart liquidsoap-radio",
         "success",
     )
@@ -78,7 +78,7 @@ def supprimer(relay_id):
     database.delete_relay(relay_id)
     write_relays_json(current_app._get_current_object())
     flash(
-        "Serveur supprime. Redemarrez Liquidsoap pour appliquer : "
+        "Serveur supprimé. Redémarrez Liquidsoap pour appliquer : "
         "sudo systemctl restart liquidsoap-radio",
         "success",
     )
@@ -93,7 +93,7 @@ def activer(relay_id):
         database.set_relay_active(relay_id, not relay["active"])
         write_relays_json(current_app._get_current_object())
         flash(
-            "Redemarrez Liquidsoap pour appliquer : sudo systemctl restart liquidsoap-radio",
+            "Redémarrez Liquidsoap pour appliquer : sudo systemctl restart liquidsoap-radio",
             "success",
         )
     return redirect(url_for("settings.reglages"))

@@ -5,7 +5,7 @@
 <div class="page-header">
   <h1>{{ cfg.label }}</h1>
   {% if category == "pub" %}
-  <span class="pill">{{ scheduled_pub_ids|length }} / {{ counts.get('total', 0) }} planifiees</span>
+  <span class="pill">{{ scheduled_pub_ids|length }} / {{ counts.get('total', 0) }} planifiées</span>
   {% else %}
   <span class="pill">{{ counts.get('actifs', 0) }} / {{ counts.get('total', 0) }} actifs</span>
   {% endif %}
@@ -31,9 +31,9 @@
       <tr>
         <th>Titre</th>
         <th>Artiste</th>
-        <th>Duree</th>
-        <th>Ajoute le</th>
-        <th>{{ "Planifiee" if category == "pub" else "Actif" }}</th>
+        <th>Durée</th>
+        <th>Ajouté le</th>
+        <th>{{ "Planifiée" if category == "pub" else "Actif" }}</th>
         <th></th>
       </tr>
     </thead>
@@ -48,7 +48,7 @@
         <td>
           {% if category == "pub" %}
           <span class="pill {{ 'pill-ok' if is_scheduled else 'pill-down' }}">
-            {{ "planifiee" if is_scheduled else "non planifiee" }}
+            {{ "planifiée" if is_scheduled else "non planifiée" }}
           </span>
           {% else %}
           <form method="post" action="{{ url_for('library.' ~ cfg.url ~ '_activer', track_id=t.id) }}">
@@ -71,7 +71,7 @@
         </td>
       </tr>
       {% else %}
-      <tr><td colspan="6" class="muted">Aucun element pour l'instant.</td></tr>
+      <tr><td colspan="6" class="muted">Aucun élément pour l'instant.</td></tr>
       {% endfor %}
     </tbody>
   </table>
@@ -87,7 +87,7 @@
         <span>musiques</span>
       </div>
     </label>
-    <p class="hint">Mettre 0 desactive l'insertion automatique (vous pouvez toujours en declencher un manuellement avec « Jouer maintenant » ci-dessus).</p>
+    <p class="hint">Mettre 0 désactive l'insertion automatique (vous pouvez toujours en déclencher un manuellement avec « Jouer maintenant » ci-dessus).</p>
     <button type="submit" class="btn btn-primary">Enregistrer</button>
   </form>
 </section>
@@ -95,11 +95,11 @@
 
 {% if category == "pub" %}
 <section class="card">
-  <h2>Pubs planifiees</h2>
+  <h2>Pubs planifiées</h2>
   <p class="hint">
-    A l'heure indiquee, les jours de la semaine coches, les pubs cochees
-    pour ce creneau passent l'une apres l'autre, a la fin du titre en cours
-    (un creneau ne se declenche qu'une fois par jour).
+    À l'heure indiquée, les jours de la semaine cochés, les pubs cochées
+    pour ce créneau passent l'une après l'autre, à la fin du titre en cours
+    (un créneau ne se déclenche qu'une fois par jour).
   </p>
 
   <table class="table">
@@ -115,7 +115,7 @@
           {% if entry.tracks %}
             {% for t in entry.tracks %}{{ t.title or t.filename }}{% if not loop.last %}, {% endif %}{% endfor %}
           {% else %}
-            <span class="muted">Aucune pub associee</span>
+            <span class="muted">Aucune pub associée</span>
           {% endif %}
         </td>
         <td>
@@ -127,18 +127,18 @@
         </td>
         <td class="row-actions">
           <a href="{{ url_for('pub_slots.modifier', slot_id=entry.slot.id) }}" class="btn btn-mini btn-secondary">Modifier</a>
-          <form method="post" action="{{ url_for('pub_slots.supprimer', slot_id=entry.slot.id) }}" onsubmit="return confirm('Supprimer ce creneau ?');">
+          <form method="post" action="{{ url_for('pub_slots.supprimer', slot_id=entry.slot.id) }}" onsubmit="return confirm('Supprimer ce créneau ?');">
             <button type="submit" class="btn btn-mini btn-danger">Supprimer</button>
           </form>
         </td>
       </tr>
       {% else %}
-      <tr><td colspan="5" class="muted">Aucun creneau configure : aucune pub ne sera diffusee.</td></tr>
+      <tr><td colspan="5" class="muted">Aucun créneau configuré : aucune pub ne sera diffusée.</td></tr>
       {% endfor %}
     </tbody>
   </table>
 
-  <h2 style="margin-top: 22px;">Ajouter un creneau</h2>
+  <h2 style="margin-top: 22px;">Ajouter un créneau</h2>
   {% if all_pubs %}
   <form method="post" action="{{ url_for('pub_slots.ajouter') }}" class="settings-form">
     <label>Heure
@@ -154,7 +154,7 @@
         {% endfor %}
       </div>
     </label>
-    <label>Pubs a diffuser a ce creneau
+    <label>Pubs à diffuser à ce créneau
       <div class="checkbox-list">
         {% for t in all_pubs %}
         <label class="checkbox-list-item">
@@ -167,7 +167,7 @@
     <button type="submit" class="btn btn-primary">Ajouter</button>
   </form>
   {% else %}
-  <p class="hint">Ajoutez d'abord au moins une pub ci-dessus pour pouvoir creer un creneau.</p>
+  <p class="hint">Ajoutez d'abord au moins une pub ci-dessus pour pouvoir créer un créneau.</p>
   {% endif %}
 </section>
 {% endif %}

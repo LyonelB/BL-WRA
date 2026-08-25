@@ -42,16 +42,16 @@ def _parse_days():
 def ajouter():
     time_str = request.form.get("time", "").strip()
     if not time_str:
-        flash("L'heure du creneau est obligatoire.", "error")
+        flash("L'heure du créneau est obligatoire.", "error")
         return redirect(url_for("library.pubs"))
 
     days_str = _parse_days()
     if not days_str:
-        flash("Selectionnez au moins un jour de diffusion.", "error")
+        flash("Sélectionnez au moins un jour de diffusion.", "error")
         return redirect(url_for("library.pubs"))
 
     database.add_pub_slot(time_str, days_str, _parse_track_ids())
-    flash("Creneau ajoute.", "success")
+    flash("Créneau ajouté.", "success")
     return redirect(url_for("library.pubs"))
 
 
@@ -60,25 +60,27 @@ def ajouter():
 def modifier(slot_id):
     slot = database.get_pub_slot(slot_id)
     if not slot:
-        flash("Creneau introuvable.", "error")
+        flash("Créneau introuvable.", "error")
         return redirect(url_for("library.pubs"))
 
     if request.method == "POST":
         time_str = request.form.get("time", "").strip()
         if not time_str:
-            flash("L'heure du creneau est obligatoire.", "error")
+            flash("L'heure du créneau est obligatoire.", "error")
             return redirect(url_for("pub_slots.modifier", slot_id=slot_id))
 
         days_str = _parse_days()
         if not days_str:
-            flash("Selectionnez au moins un jour de diffusion.", "error")
+            flash("Sélectionnez au moins un jour de diffusion.", "error")
             return redirect(url_for("pub_slots.modifier", slot_id=slot_id))
 
         database.update_pub_slot(slot_id, time_str, days_str, _parse_track_ids())
-        flash("Creneau modifie.", "success")
+        flash("Créneau modifié.", "success")
         return redirect(url_for("library.pubs"))
 
-    all_pubs = database.list_tracks("pub", active_only=True)
+    # Toutes les pubs sont proposees (plus de filtre "active" manuel cote
+    # pubs depuis l'introduction du badge "Planifiee", voir library.py).
+    all_pubs = database.list_tracks("pub")
     assigned_ids = set(database.get_pub_slot_track_ids(slot_id))
     return render_template(
         "pub_slot_edit.html", slot=slot, all_pubs=all_pubs, assigned_ids=assigned_ids
@@ -89,7 +91,7 @@ def modifier(slot_id):
 @login_required
 def supprimer(slot_id):
     database.delete_pub_slot(slot_id)
-    flash("Creneau supprime.", "success")
+    flash("Créneau supprimé.", "success")
     return redirect(url_for("library.pubs"))
 
 

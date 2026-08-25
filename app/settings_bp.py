@@ -139,7 +139,7 @@ def relancer_conversion():
     library_convert.py). Necessaire quand le bitrate cible change apres
     coup : les fichiers deja importes ne se reconvertissent pas tout seuls."""
     if not _conversion_lock.acquire(blocking=False):
-        flash("Une conversion de la bibliotheque est deja en cours.", "error")
+        flash("Une conversion de la bibliothèque est déjà en cours.", "error")
         return redirect(url_for("settings.reglages"))
 
     try:
@@ -161,8 +161,8 @@ def relancer_conversion():
 
     threading.Thread(target=worker, daemon=True, name="library-convert").start()
     flash(
-        "Conversion de la bibliotheque lancee en arriere-plan "
-        "(progression affichee ci-dessous, ca peut prendre quelques minutes).",
+        "Conversion de la bibliothèque lancée en arrière-plan "
+        "(progression affichée ci-dessous, ça peut prendre quelques minutes).",
         "success",
     )
     return redirect(url_for("settings.reglages"))
@@ -187,7 +187,7 @@ def _run_conversion_background(app, bitrate_kbps, sample_rate):
                 on_line=log.info, on_progress=on_progress,
             )
             summary = ", ".join(f"{v} {k}" for k, v in sorted(counts.items())) or "aucun fichier"
-            database.set_state("library_convert_summary", f"Terminee : {summary}.")
+            database.set_state("library_convert_summary", f"Terminée : {summary}.")
         except Exception:
             log.exception("Echec de la conversion de bibliotheque en arriere-plan")
             database.set_state("library_convert_summary", "Erreur pendant la conversion, voir les journaux (page Logs).")
@@ -222,16 +222,16 @@ def redemarrer_liquidsoap():
         )
         database.set_setting("audio_fx_pending_restart", "0")
         database.set_setting("audio_sample_rate_pending_restart", "0")
-        flash("Liquidsoap redemarre.", "success")
+        flash("Liquidsoap redémarré.", "success")
     except subprocess.CalledProcessError as exc:
         flash(
-            "Echec du redemarrage de Liquidsoap : "
+            "Échec du redémarrage de Liquidsoap : "
             + (exc.stderr.strip() if exc.stderr else str(exc))
-            + ". Verifiez que /etc/sudoers.d/radio-wra est bien installe (voir install/radio-sudoers).",
+            + ". Vérifiez que /etc/sudoers.d/radio-wra est bien installé (voir install/radio-sudoers).",
             "error",
         )
     except subprocess.TimeoutExpired:
-        flash("Le redemarrage de Liquidsoap prend plus de temps que prevu, verifiez manuellement.", "error")
+        flash("Le redémarrage de Liquidsoap prend plus de temps que prévu, vérifiez manuellement.", "error")
     except FileNotFoundError:
         flash("Commande 'sudo' introuvable sur ce serveur.", "error")
     return redirect(url_for("settings.reglages"))
@@ -252,23 +252,23 @@ def basculer_restart_preventif():
             check=True, capture_output=True, timeout=15, text=True,
         )
         if action == "enable":
-            flash("Redemarrage preventif quotidien (4h du matin) active.", "success")
+            flash("Redémarrage préventif quotidien (4h du matin) activé.", "success")
         else:
             flash(
-                "Redemarrage preventif quotidien desactive. Attention : sans redemarrage "
-                "regulier, une derive memoire/CPU non detectee pourrait s'accumuler sans "
-                "intervention (voir README, section \"Fiabilite 24h/24 7j/7\").",
+                "Redémarrage préventif quotidien désactivé. Attention : sans redémarrage "
+                "régulier, une dérive mémoire/CPU non détectée pourrait s'accumuler sans "
+                "intervention (voir README, section \"Fiabilité 24h/24 7j/7\").",
                 "success",
             )
     except subprocess.CalledProcessError as exc:
         flash(
-            "Echec du changement : "
+            "Échec du changement : "
             + (exc.stderr.strip() if exc.stderr else str(exc))
-            + ". Verifiez que /etc/sudoers.d/radio-wra est a jour (voir install/radio-sudoers).",
+            + ". Vérifiez que /etc/sudoers.d/radio-wra est à jour (voir install/radio-sudoers).",
             "error",
         )
     except subprocess.TimeoutExpired:
-        flash("La commande prend plus de temps que prevu, verifiez manuellement.", "error")
+        flash("La commande prend plus de temps que prévu, vérifiez manuellement.", "error")
     except FileNotFoundError:
         flash("Commande 'sudo' introuvable sur ce serveur.", "error")
     return redirect(url_for("settings.reglages"))
@@ -284,7 +284,7 @@ def _save_rotation():
 
     database.set_setting("station_name", station_name)
     database.set_setting("stream_url", stream_url)
-    flash("Reglages enregistres.", "success")
+    flash("Réglages enregistrés.", "success")
     return redirect(url_for("settings.reglages"))
 
 
@@ -323,17 +323,17 @@ def _save_audio_format():
             current_app.config["AUDIO_FORMAT_JSON_PATH"], database.get_all_settings()
         )
     except OSError as exc:
-        flash(f"Reglages enregistres, mais audio_format.json n'a pas pu etre ecrit : {exc}", "error")
+        flash(f"Réglages enregistrés, mais audio_format.json n'a pas pu être écrit : {exc}", "error")
         return redirect(url_for("settings.reglages"))
 
     if str(sample_rate) != old_sample_rate:
         flash(
-            "Reglages enregistres. La frequence a change : redemarrez Liquidsoap pour l'appliquer, "
-            "puis relancez la conversion de la bibliotheque ci-dessous.",
+            "Réglages enregistrés. La fréquence a changé : redémarrez Liquidsoap pour l'appliquer, "
+            "puis relancez la conversion de la bibliothèque ci-dessous.",
             "success",
         )
     else:
-        flash("Reglages enregistres.", "success")
+        flash("Réglages enregistrés.", "success")
     return redirect(url_for("settings.reglages"))
 
 
@@ -370,11 +370,11 @@ def _save_audio_fx():
             current_app.config["AUDIO_FX_JSON_PATH"], updated_settings
         )
     except OSError as exc:
-        flash(f"Reglages enregistres, mais audio_fx.json n'a pas pu etre ecrit : {exc}", "error")
+        flash(f"Réglages enregistrés, mais audio_fx.json n'a pas pu être écrit : {exc}", "error")
         return redirect(url_for("settings.reglages"))
 
     if changed:
-        flash("Reglages enregistres. Le traitement audio a change : redemarrez Liquidsoap pour l'appliquer.", "success")
+        flash("Réglages enregistrés. Le traitement audio a changé : redémarrez Liquidsoap pour l'appliquer.", "success")
     else:
-        flash("Reglages enregistres.", "success")
+        flash("Réglages enregistrés.", "success")
     return redirect(url_for("settings.reglages"))

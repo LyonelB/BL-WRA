@@ -364,11 +364,3 @@ prio.push /opt/radio/media/jingles/xxx.mp3
   qu'un vrai push instantané — largement suffisant pour ce cas d'usage et
   plus simple à déployer de façon fiable derrière un reverse-proxy.
 
-## Roadmap
-
-- **Accents dans l'interface** : tous les templates HTML (`app/templates/`)
-  et messages Python (flash, logs) sont actuellement écrits sans accents
-  ("Reglages", "Redemarrer", "Frequence"...), par convention historique du
-  projet plutôt que par bug. À corriger dans un prochain correctif dédié —
-  chantier transverse (repasse sur l'ensemble des templates et des chaînes
-  de caractères côté Python), pas un simple changement de format de fichier.

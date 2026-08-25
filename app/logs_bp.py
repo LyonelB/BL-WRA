@@ -57,16 +57,16 @@ def api_logs():
     if result.returncode != 0:
         return jsonify({
             "logs": "",
-            "error": (result.stderr or f"journalctl a renvoye le code {result.returncode}").strip()
+            "error": (result.stderr or f"journalctl a renvoyé le code {result.returncode}").strip()
             + " - l'utilisateur 'radio' est-il bien dans le groupe systemd-journal ?",
         })
 
     if not result.stdout.strip():
         return jsonify({
             "logs": "",
-            "error": "Aucune ligne renvoyee. Verifiez que l'utilisateur 'radio' est bien dans le "
-            "groupe systemd-journal (voir README, section 'Page Logs') et que radio-web a ete "
-            "redemarre depuis.",
+            "error": "Aucune ligne renvoyée. Vérifiez que l'utilisateur 'radio' est bien dans le "
+            "groupe systemd-journal (voir README, section 'Page Logs') et que radio-web a été "
+            "redémarré depuis.",
         })
 
     return jsonify({"logs": result.stdout})
