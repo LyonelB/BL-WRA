@@ -77,6 +77,22 @@
   </table>
 </section>
 
+{% if category == "musique" %}
+<section class="card">
+  <h2>Rotation</h2>
+  <form method="post" action="{{ url_for('library.bibliotheque_reglages') }}" class="settings-form">
+    <label>Ne pas rejouer un même titre avant
+      <div class="input-suffix">
+        <input type="number" min="0" name="musique_no_repeat_minutes" value="{{ musique_no_repeat_minutes }}">
+        <span>minutes</span>
+      </div>
+    </label>
+    <p class="hint">Mettre 0 désactive la contrainte (tirage complètement aléatoire). Si la bibliothèque est trop petite pour respecter ce délai, la contrainte est ignorée ponctuellement plutôt que d'interrompre la diffusion. Contrairement aux réglages de la page Réglages, ceci s'applique immédiatement, sans redémarrer Liquidsoap.</p>
+    <button type="submit" class="btn btn-primary">Enregistrer</button>
+  </form>
+</section>
+{% endif %}
+
 {% if category == "jingle" %}
 <section class="card">
   <h2>Rotation</h2>

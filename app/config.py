@@ -42,6 +42,18 @@ AUDIO_FX_JSON_PATH = os.environ.get("RADIO_AUDIO_FX_JSON", "/opt/radio/liquidsoa
 # Necessite aussi un redemarrage de Liquidsoap pour s'appliquer.
 AUDIO_FORMAT_JSON_PATH = os.environ.get("RADIO_AUDIO_FORMAT_JSON", "/opt/radio/liquidsoap/audio_format.json")
 
+# Fichier RELU EN CONTINU par radio.liq (pas seulement au demarrage) a
+# chaque selection d'une nouvelle musique, pour la fenetre de
+# non-repetition (voir /bibliotheque, reglage "musique_no_repeat_minutes").
+# Contrairement a audio_fx.json/audio_format.json, un changement ici prend
+# effet immediatement, sans redemarrer Liquidsoap : c'est un parametre de
+# selection, pas une caracteristique du graphe audio construite une seule
+# fois. Ecrit par l'appli Flask a chaque enregistrement du reglage (voir
+# library.py/liquidsoap_client.py).
+MUSIQUE_ROTATION_JSON_PATH = os.environ.get(
+    "RADIO_MUSIQUE_ROTATION_JSON", "/opt/radio/liquidsoap/musique_rotation.json"
+)
+
 # Cle de session Flask - a definir via variable d'environnement en prod
 SECRET_KEY = os.environ.get("RADIO_SECRET_KEY", "change-moi-en-production")
 
@@ -67,6 +79,11 @@ DEFAULT_SETTINGS = {
     # manips (voir library.py, _list_view/_play_now_view)
     "jingle_play_now_enabled": "1",
     "pub_play_now_enabled": "1",
+    # Anti-repetition des musiques : un meme titre ne peut pas repasser
+    # avant ce nombre de minutes (voir liquidsoap_client.py et radio.liq,
+    # musique_next_request). 0 desactive la contrainte (retour au tirage
+    # completement aleatoire).
+    "musique_no_repeat_minutes": "120",
     # les pubs sont programmees a heure fixe, voir la table pub_slots et
     # Reglages -> Pubs planifiees (plus de reglage d'intervalle ici)
     # nombre de secondes de fondu enchaine entre les titres (info only,

@@ -71,6 +71,14 @@ audio_fx_path = "/opt/radio/liquidsoap/audio_fx.json"
 # necessite un redemarrage de Liquidsoap pour s'appliquer, comme crossfade.
 audio_format_path = "/opt/radio/liquidsoap/audio_format.json"
 
+# Fichier RELU A CHAQUE selection d'une nouvelle musique (pas seulement au
+# demarrage) pour la fenetre de non-repetition (voir Bibliotheque ->
+# Rotation cote appli web, et musique_next_request plus bas). Un changement
+# ici prend donc effet immediatement, sans redemarrer Liquidsoap : c'est un
+# parametre de selection, pas une caracteristique du graphe audio construite
+# une seule fois comme audio_fx/audio_format ci-dessus.
+musique_rotation_path = "/opt/radio/liquidsoap/musique_rotation.json"
+
 # ---------------------------------------------------------------------------
 # Securite : le serveur telnet et l'API harbor ne doivent ecouter qu'en local
 # ---------------------------------------------------------------------------
@@ -116,7 +124,75 @@ musiques_dir = "#{media_path}/musiques"
 jingles_dir  = "#{media_path}/jingles"
 pubs_dir     = "#{media_path}/pubs"
 
-musiques_raw = playlist(id="musiques", mode="randomize", reload_mode="watch", musiques_dir)
+# ---------------------------------------------------------------------------
+# Musiques : selection avec anti-repetition (26/08). Remplace un simple
+# playlist(mode="randomize") qui pouvait rejouer le meme titre a quelques
+# minutes d'intervalle (repetition constatee en prod). request.dynamic
+# appelle musique_next_request() a chaque fois qu'un nouveau fichier est
+# necessaire ; on y exclut les titres joues recemment (fenetre reglable
+# depuis Bibliotheque -> Rotation, cote appli web) avant de tirer au hasard.
+#
+# Le dossier est relu (file.ls) a CHAQUE selection plutot qu'en mode "watch"
+# comme avant : c'est plus simple et au moins aussi a jour (un fichier tout
+# juste ajoute est immediatement candidat), et le cout est negligeable vu la
+# frequence des selections (quelques dizaines de fichiers, une fois toutes
+# les quelques minutes).
+#
+# Vigilance memoire (cf. HISTORIQUE 21/08 plus bas sur normalize/
+# blank_removal) : musique_history ne grossit jamais indefiniment - purge a
+# chaque appel de tout ce qui depasse musique_history_max_seconds (6h), quel
+# que soit le reglage de fenetre choisi cote appli web.
+# ---------------------------------------------------------------------------
+
+def load_musique_no_repeat_minutes() =
+  default = 120
+  if file.exists(musique_rotation_path) then
+    try
+      let json.parse (parsed : {no_repeat_minutes: int}) = file.contents(musique_rotation_path)
+      parsed.no_repeat_minutes
+    catch _ : [error.json] do
+      log(label="musique_rotation", "musique_rotation.json invalide, valeur par defaut utilisee")
+      default
+    end
+  else
+    default
+  end
+end
+
+# Liste de (chemin, timestamp) des musiques recemment jouees.
+musique_history = ref([])
+musique_history_max_seconds = 6. * 60. * 60.
+
+def musique_next_request() =
+  no_repeat_seconds = float_of_int(load_musique_no_repeat_minutes()) * 60.
+  now = time()
+
+  # Purge independante du reglage courant, pour borner la memoire meme si
+  # quelqu'un choisit une fenetre tres longue cote appli web.
+  musique_history := list.filter(fun (e) -> now - snd(e) < musique_history_max_seconds, musique_history())
+
+  recent = list.filter(fun (e) -> now - snd(e) < no_repeat_seconds, musique_history())
+  recent_files = list.map(fun (e) -> fst(e), recent)
+
+  all_files = file.ls(absolute=true, musiques_dir)
+  candidates = list.filter(fun (f) -> not list.mem(f, recent_files), all_files)
+  # Bibliotheque trop petite pour la fenetre choisie : on retombe sur la
+  # liste complete plutot que de bloquer la diffusion.
+  pool = if list.length(candidates) > 0 then candidates else all_files end
+
+  if list.length(pool) == 0 then
+    # Dossier musiques vide : rien a jouer pour l'instant.
+    null()
+  else
+    idx = random.int(min=0, max=list.length(pool))
+    fallback_pick = list.nth(pool, 0)
+    picked = list.nth(default=fallback_pick, pool, idx)
+    musique_history := list.add((picked, now), musique_history())
+    request.create(picked)
+  end
+end
+
+musiques_raw = request.dynamic(id="musiques", musique_next_request)
 
 # File d'attente prioritaire : c'est ici que l'appli web pousse un jingle ou
 # une pub. Des qu'elle contient quelque chose, ca passe avant les musiques ;

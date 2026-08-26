@@ -32,7 +32,7 @@ bp = Blueprint("library", __name__)
 CATEGORY_CONFIG = {
     "musique": {
         "dir_key": "MUSIQUES_DIR", "url": "bibliotheque", "label": "Bibliothèque",
-        "hint": "Les musiques sont jouées en boucle, dans un ordre aléatoire.",
+        "hint": "Les musiques sont jouées en boucle, dans un ordre aléatoire (réglage anti-répétition ci-dessous).",
         "show_jouer": False,
         # Case a cocher "Actif" disponible directement sur la page de
         # modification (voir library_edit.html), en plus du bouton
@@ -85,7 +85,9 @@ def _list_view(category):
     # cette meme page (voir library.html) - deplaces depuis Reglages pour
     # regrouper bibliotheque + planification au meme endroit.
     extra = {}
-    if category == "jingle":
+    if category == "musique":
+        extra["musique_no_repeat_minutes"] = database.get_setting("musique_no_repeat_minutes", 120)
+    elif category == "jingle":
         extra["jingle_every_n_titles"] = database.get_setting("jingle_every_n_titles", 4)
     elif category == "pub":
         extra["pub_slots"] = database.list_pub_slots()
@@ -251,6 +253,26 @@ def bibliotheque_activer(track_id):
 @login_required
 def bibliotheque_modifier(track_id):
     return _edit_view("musique", track_id)
+
+
+@bp.route("/bibliotheque/reglages", methods=["POST"])
+@login_required
+def bibliotheque_reglages():
+    """Fenetre de non-repetition des musiques - lue en continu par radio.liq
+    (musique_rotation.json), donc effective immediatement, sans redemarrer
+    Liquidsoap (contrairement aux reglages audio de la page Reglages)."""
+    try:
+        no_repeat = max(0, int(request.form.get("musique_no_repeat_minutes", 120)))
+    except ValueError:
+        flash("Valeur invalide.", "error")
+        return redirect(url_for("library.bibliotheque"))
+
+    database.set_setting("musique_no_repeat_minutes", no_repeat)
+    liquidsoap_client.write_musique_rotation_file(
+        current_app.config["MUSIQUE_ROTATION_JSON_PATH"], database.get_all_settings()
+    )
+    flash("Réglages enregistrés.", "success")
+    return redirect(url_for("library.bibliotheque"))
 
 
 # --- Jingles --------------------------------------------------------------

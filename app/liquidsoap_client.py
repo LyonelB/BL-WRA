@@ -122,6 +122,24 @@ def write_audio_format_file(path, settings):
     os.replace(tmp_path, path)
 
 
+def write_musique_rotation_file(path, settings):
+    """Ecrit la fenetre de non-repetition des musiques dans le fichier JSON
+    relu par radio.liq A CHAQUE selection d'une musique (pas seulement au
+    demarrage, voir MUSIQUE_ROTATION_JSON_PATH dans config.py) : contrairement
+    a audio_fx.json/audio_format.json, un changement ici s'applique sans
+    redemarrer Liquidsoap - au pire au prochain titre.
+    """
+    try:
+        no_repeat_minutes = max(0, int(settings.get("musique_no_repeat_minutes", "120")))
+    except (TypeError, ValueError):
+        no_repeat_minutes = 120
+    payload = {"no_repeat_minutes": no_repeat_minutes}
+    tmp_path = f"{path}.tmp"
+    with open(tmp_path, "w", encoding="utf-8") as f:
+        json.dump(payload, f)
+    os.replace(tmp_path, path)
+
+
 def sync_audio_fx(base_url, settings):
     """Repousse vers Liquidsoap, a chaud, les traitements audio qui le
     permettent (normalize/blank_removal). Best-effort : renvoie la liste des

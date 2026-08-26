@@ -170,10 +170,15 @@ liquidsoap ../liquidsoap/radio.liq
 
 ## Réglages de rotation
 
-Depuis l'onglet "Réglages" :
-
-- **Un jingle toutes les N musiques** — compteur remis à zéro à chaque
-  jingle inséré. Mettre 0 pour désactiver.
+- **Anti-répétition des musiques** (onglet "Bibliothèque", section
+  "Rotation") — un même titre ne peut pas repasser avant N minutes (120 par
+  défaut, réglable, 0 pour désactiver). Si la bibliothèque est trop petite
+  pour respecter ce délai, la contrainte est ignorée ponctuellement plutôt
+  que d'interrompre la diffusion. Contrairement aux réglages de "Traitement
+  audio" ci-dessous, celui-ci s'applique immédiatement, sans redémarrer
+  Liquidsoap (lu à chaque sélection d'un titre, voir `radio.liq`).
+- **Un jingle toutes les N musiques** (onglet "Jingles") — compteur remis à
+  zéro à chaque jingle inséré. Mettre 0 pour désactiver.
 - **Pubs planifiées (créneaux horaires)** — section dédiée dans "Réglages" :
   pour chaque créneau (une heure, ex. `10:30`), on coche la ou les pubs à
   diffuser. À l'heure dite, dès la fin du titre en cours (Liquidsoap
