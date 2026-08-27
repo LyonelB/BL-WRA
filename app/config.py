@@ -76,8 +76,10 @@ LIQUIDSOAP_API_URL = os.environ.get("LIQUIDSOAP_API_URL", "http://127.0.0.1:8001
 # ca ne coute rien de le proteger un minimum).
 WEBHOOK_TOKEN = os.environ.get("RADIO_WEBHOOK_TOKEN", "")
 
-# Extensions audio acceptees a l'upload
-ALLOWED_EXTENSIONS = {"mp3", "ogg", "flac", "wav", "m4a", "aac"}
+# Extensions audio acceptees a l'upload - converties en MP3 a l'import de
+# toute facon (voir uploads.convert_to_mp3, via ffmpeg qui sait decoder tous
+# ces formats nativement, opus inclus depuis longtemps).
+ALLOWED_EXTENSIONS = {"mp3", "ogg", "flac", "wav", "m4a", "aac", "opus"}
 MAX_UPLOAD_MB = int(os.environ.get("RADIO_MAX_UPLOAD_MB", "100"))
 
 # Valeurs par defaut des reglages de rotation (modifiables ensuite depuis
