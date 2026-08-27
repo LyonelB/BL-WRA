@@ -79,6 +79,13 @@ audio_format_path = "/opt/radio/liquidsoap/audio_format.json"
 # une seule fois comme audio_fx/audio_format ci-dessus.
 musique_rotation_path = "/opt/radio/liquidsoap/musique_rotation.json"
 
+# Fichier RELU A CHAQUE selection d'une nouvelle musique (comme
+# musique_rotation_path ci-dessus) : playlists thematiques programmees a
+# l'avance (Noel, ete, braderie...), voir /playlists cote appli web et
+# active_playlist_files plus bas. Ecrit par l'appli Flask a chaque
+# creation/modification/suppression/activation d'une playlist.
+playlists_path = "/opt/radio/liquidsoap/playlists.json"
+
 # ---------------------------------------------------------------------------
 # Securite : le serveur telnet et l'API harbor ne doivent ecouter qu'en local
 # ---------------------------------------------------------------------------
@@ -163,6 +170,61 @@ end
 musique_history = ref([])
 musique_history_max_seconds = 6. * 60. * 60.
 
+# ---------------------------------------------------------------------------
+# Playlists thematiques (27/08) : une periode programmee a l'avance (dates
+# "JJ/MM", repetees chaque annee) pendant laquelle seules les musiques
+# assignees a cette playlist sont diffusees, a la place de la bibliotheque
+# complete. playlists.json est ecrit cote Flask avec, pour chaque playlist,
+# start_key/end_key deja precalcules (ex. "12-25" -> 1225) : la comparaison
+# numerique ci-dessous gere nativement le passage d'une annee sur l'autre
+# (ex. Noel : 1er decembre -> 6 janvier, start_key=1201 > end_key=106).
+# ---------------------------------------------------------------------------
+
+def load_playlists() =
+  default = []
+  if file.exists(playlists_path) then
+    try
+      let json.parse (parsed : {playlists: [{id: int, name: string, start_date: string,
+        end_date: string, start_key: int, end_key: int, active: bool,
+        track_paths: [string]}]}) = file.contents(playlists_path)
+      parsed.playlists
+    catch _ : [error.json] do
+      log(label="playlists", "playlists.json invalide, bibliotheque complete utilisee")
+      default
+    end
+  else
+    default
+  end
+end
+
+# Fichiers de la playlist thematique active aujourd'hui, s'il y en a une, ou
+# null() sinon (bibliotheque complete utilisee dans ce cas). En cas de
+# chevauchement entre plusieurs playlists actives a la meme date, la
+# premiere dans l'ordre de creation (ordre du tableau JSON) est prioritaire.
+# Les fichiers qui n'existent plus (musique supprimee depuis) sont ecartes
+# par securite plutot que de faire planter la selection.
+def active_playlist_files() =
+  today = time.local(time())
+  today_key = today.month * 100 + today.day
+  matches = list.filter(fun (p) ->
+      p.active and (
+        if p.start_key <= p.end_key then
+          today_key >= p.start_key and today_key <= p.end_key
+        else
+          today_key >= p.start_key or today_key <= p.end_key
+        end
+      ),
+    load_playlists()
+  )
+  if list.length(matches) == 0 then
+    null()
+  else
+    chosen = list.nth(matches, 0)
+    existing = list.filter(fun (f) -> file.exists(f), chosen.track_paths)
+    if list.length(existing) == 0 then null() else existing end
+  end
+end
+
 def musique_next_request() =
   no_repeat_seconds = float_of_int(load_musique_no_repeat_minutes()) * 60.
   now = time()
@@ -174,7 +236,10 @@ def musique_next_request() =
   recent = list.filter(fun (e) -> now - snd(e) < no_repeat_seconds, musique_history())
   recent_files = list.map(fun (e) -> fst(e), recent)
 
-  all_files = file.ls(absolute=true, musiques_dir)
+  # Playlist thematique active aujourd'hui si elle existe, sinon bibliotheque
+  # complete (comportement inchange par rapport a avant l'ajout des
+  # playlists).
+  all_files = null.default(active_playlist_files(), fun () -> file.ls(absolute=true, musiques_dir))
   candidates = list.filter(fun (f) -> not list.mem(f, recent_files), all_files)
   # Bibliotheque trop petite pour la fenetre choisie : on retombe sur la
   # liste complete plutot que de bloquer la diffusion.

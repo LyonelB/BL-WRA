@@ -81,6 +81,27 @@ CREATE TABLE IF NOT EXISTS pub_slot_tracks (
     PRIMARY KEY (slot_id, track_id)
 );
 CREATE INDEX IF NOT EXISTS idx_pub_slot_tracks_slot ON pub_slot_tracks(slot_id);
+
+CREATE TABLE IF NOT EXISTS playlists (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    -- Bornes de periode au format "MM-DD" (ex. "12-01"), repetees chaque
+    -- annee - voir playlists.py/liquidsoap_client.write_playlists_file pour
+    -- le calcul de start_key/end_key (comparaison numerique geree cote
+    -- radio.liq, qui gere aussi le passage d'une annee sur l'autre).
+    start_date TEXT NOT NULL,
+    end_date TEXT NOT NULL,
+    active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS playlist_tracks (
+    playlist_id INTEGER NOT NULL REFERENCES playlists(id) ON DELETE CASCADE,
+    track_id INTEGER NOT NULL REFERENCES tracks(id) ON DELETE CASCADE,
+    position INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (playlist_id, track_id)
+);
+CREATE INDEX IF NOT EXISTS idx_playlist_tracks_playlist ON playlist_tracks(playlist_id);
 """
 
 
@@ -500,4 +521,88 @@ def due_pub_slots(now_hm, today, weekday):
 def mark_pub_slot_fired(slot_id, today):
     db = get_db()
     db.execute("UPDATE pub_slots SET last_fired_date = ? WHERE id = ?", (today, slot_id))
+    db.commit()
+
+
+# --------------------------------------------------------------------------
+# Playlists thematiques (Bibliotheque -> Playlists) : periodes programmees a
+# l'avance (Noel, ete, braderie...) pendant lesquelles seules les musiques
+# assignees a la playlist active sont diffusees, a la place de la
+# bibliotheque complete. Voir playlists.py et radio.liq
+# (active_playlist_files) pour la logique de selection.
+# --------------------------------------------------------------------------
+
+def list_playlists():
+    """Toutes les playlists, dans l'ordre de creation - c'est aussi l'ordre
+    de priorite utilise par radio.liq en cas de chevauchement entre deux
+    playlists actives a la meme date (la plus ancienne gagne)."""
+    db = get_db()
+    playlists = db.execute("SELECT * FROM playlists ORDER BY id").fetchall()
+    result = []
+    for p in playlists:
+        tracks = db.execute(
+            "SELECT t.* FROM playlist_tracks pt JOIN tracks t ON t.id = pt.track_id "
+            "WHERE pt.playlist_id = ? ORDER BY pt.position",
+            (p["id"],),
+        ).fetchall()
+        result.append({"playlist": p, "tracks": tracks})
+    return result
+
+
+def get_playlist(playlist_id):
+    db = get_db()
+    return db.execute("SELECT * FROM playlists WHERE id = ?", (playlist_id,)).fetchone()
+
+
+def get_playlist_track_ids(playlist_id):
+    """Pour pre-cocher le formulaire de modification."""
+    db = get_db()
+    rows = db.execute(
+        "SELECT track_id FROM playlist_tracks WHERE playlist_id = ? ORDER BY position",
+        (playlist_id,),
+    ).fetchall()
+    return [r["track_id"] for r in rows]
+
+
+def _set_playlist_tracks(db, playlist_id, track_ids):
+    db.execute("DELETE FROM playlist_tracks WHERE playlist_id = ?", (playlist_id,))
+    for pos, track_id in enumerate(track_ids):
+        db.execute(
+            "INSERT INTO playlist_tracks (playlist_id, track_id, position) VALUES (?, ?, ?)",
+            (playlist_id, track_id, pos),
+        )
+
+
+def add_playlist(name, start_date, end_date, track_ids):
+    db = get_db()
+    cur = db.execute(
+        "INSERT INTO playlists (name, start_date, end_date, active, created_at) "
+        "VALUES (?, ?, ?, 1, ?)",
+        (name, start_date, end_date, _now()),
+    )
+    playlist_id = cur.lastrowid
+    _set_playlist_tracks(db, playlist_id, track_ids)
+    db.commit()
+    return playlist_id
+
+
+def update_playlist(playlist_id, name, start_date, end_date, track_ids):
+    db = get_db()
+    db.execute(
+        "UPDATE playlists SET name = ?, start_date = ?, end_date = ? WHERE id = ?",
+        (name, start_date, end_date, playlist_id),
+    )
+    _set_playlist_tracks(db, playlist_id, track_ids)
+    db.commit()
+
+
+def delete_playlist(playlist_id):
+    db = get_db()
+    db.execute("DELETE FROM playlists WHERE id = ?", (playlist_id,))
+    db.commit()
+
+
+def set_playlist_active(playlist_id, active):
+    db = get_db()
+    db.execute("UPDATE playlists SET active = ? WHERE id = ?", (1 if active else 0, playlist_id))
     db.commit()

@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}Playlists{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <h1>Playlists</h1>
+  <span class="pill">{{ playlists|length }} playlist(s)</span>
+</div>
+
+<p class="hint">
+  Une playlist thématique programmée à l'avance (Noël, été, braderie...)
+  remplace complètement la bibliothèque habituelle de musiques pendant sa
+  période active - la bibliothèque normale reprend automatiquement une fois
+  la période terminée, sans intervention. Les dates se répètent chaque
+  année (pas besoin de recréer "Noël" tous les ans). La contrainte
+  anti-répétition (Bibliothèque -> Rotation) continue de s'appliquer parmi
+  les titres de la playlist active. En cas de chevauchement entre deux
+  playlists actives à la même date, la plus ancienne (créée en premier) est
+  prioritaire.
+</p>
+
+<section class="card">
+  <table class="table">
+    <thead>
+      <tr><th>Nom</th><th>Période</th><th>Titres</th><th>Actif</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for entry in playlists %}
+      {% set p = entry.playlist %}
+      <tr class="{{ '' if p.active else 'row-inactive' }}">
+        <td>{{ p.name }}</td>
+        <td>Du {{ p.start_date.split('-')[1] }}/{{ p.start_date.split('-')[0] }} au {{ p.end_date.split('-')[1] }}/{{ p.end_date.split('-')[0] }}</td>
+        <td>{{ entry.tracks|length }}</td>
+        <td>
+          <form method="post" action="{{ url_for('playlists.activer', playlist_id=p.id) }}">
+            <button type="submit" class="toggle {{ 'toggle-on' if p.active else 'toggle-off' }}">
+              {{ "actif" if p.active else "inactif" }}
+            </button>
+          </form>
+        </td>
+        <td class="row-actions">
+          <a href="{{ url_for('playlists.modifier', playlist_id=p.id) }}" class="btn btn-mini btn-secondary">Modifier</a>
+          <form method="post" action="{{ url_for('playlists.supprimer', playlist_id=p.id) }}" onsubmit="return confirm('Supprimer cette playlist ?');">
+            <button type="submit" class="btn btn-mini btn-danger">Supprimer</button>
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5" class="muted">Aucune playlist pour l'instant : la bibliothèque habituelle est utilisée en continu.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <h2 style="margin-top: 22px;">Ajouter une playlist</h2>
+  <form method="post" action="{{ url_for('playlists.ajouter') }}" class="settings-form">
+    <label>Nom
+      <input type="text" name="name" required placeholder="ex. Noël">
+    </label>
+    <label>Période (répétée chaque année)</label>
+    <div class="days-picker" style="align-items: center;">
+      <span>Du</span>
+      <input type="number" name="start_day" min="1" max="31" placeholder="JJ" required style="width: 64px;">
+      <span>/</span>
+      <input type="number" name="start_month" min="1" max="12" placeholder="MM" required style="width: 64px;">
+      <span>au</span>
+      <input type="number" name="end_day" min="1" max="31" placeholder="JJ" required style="width: 64px;">
+      <span>/</span>
+      <input type="number" name="end_month" min="1" max="12" placeholder="MM" required style="width: 64px;">
+    </div>
+    <p class="hint">Ex. Noël : du 1/12 au 6/1 (la période peut chevaucher le passage à la nouvelle année).</p>
+    <label>Musiques de cette playlist
+      <div class="checkbox-list">
+        {% for t in all_musiques %}
+        <label class="checkbox-list-item">
+          <input type="checkbox" name="track_ids" value="{{ t.id }}">
+          {{ t.title or t.filename }}
+        </label>
+        {% else %}
+        <p class="hint">Ajoutez d'abord des musiques depuis la Bibliothèque.</p>
+        {% endfor %}
+      </div>
+    </label>
+    <button type="submit" class="btn btn-primary">Créer la playlist</button>
+  </form>
+</section>
+{% endblock %}

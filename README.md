@@ -177,6 +177,17 @@ liquidsoap ../liquidsoap/radio.liq
   que d'interrompre la diffusion. Contrairement aux réglages de "Traitement
   audio" ci-dessous, celui-ci s'applique immédiatement, sans redémarrer
   Liquidsoap (lu à chaque sélection d'un titre, voir `radio.liq`).
+- **Playlists thématiques** (onglet "Playlists") — une période programmée à
+  l'avance (ex. Noël du 1/12 au 6/1, été du 1/6 au 31/8) pendant laquelle
+  seules les musiques assignées à cette playlist sont diffusées, à la place
+  de la bibliothèque complète ; celle-ci reprend automatiquement une fois la
+  période terminée, sans intervention. Les dates ("JJ/MM") se répètent
+  chaque année. La contrainte anti-répétition ci-dessus continue de
+  s'appliquer parmi les titres de la playlist active. En cas de
+  chevauchement entre deux playlists actives à la même date, la plus
+  ancienne (créée en premier) est prioritaire. Comme le réglage précédent,
+  lu à chaque sélection d'un titre : aucun redémarrage de Liquidsoap requis,
+  y compris pour le changement de jour qui active/désactive une playlist.
 - **Un jingle toutes les N musiques** (onglet "Jingles") — compteur remis à
   zéro à chaque jingle inséré. Mettre 0 pour désactiver.
 - **Pubs planifiées (créneaux horaires)** — section dédiée dans "Réglages" :

@@ -32,7 +32,7 @@ bp = Blueprint("library", __name__)
 CATEGORY_CONFIG = {
     "musique": {
         "dir_key": "MUSIQUES_DIR", "url": "bibliotheque", "label": "Bibliothèque",
-        "hint": "Les musiques sont jouées en boucle, dans un ordre aléatoire (réglage anti-répétition ci-dessous).",
+        "hint": "Les musiques sont jouées en boucle, dans un ordre aléatoire (réglage anti-répétition ci-dessous). Voir aussi la page Playlists pour programmer des périodes thématiques (Noël, été...).",
         "show_jouer": False,
         # Case a cocher "Actif" disponible directement sur la page de
         # modification (voir library_edit.html), en plus du bouton

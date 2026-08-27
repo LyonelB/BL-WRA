@@ -54,6 +54,17 @@ MUSIQUE_ROTATION_JSON_PATH = os.environ.get(
     "RADIO_MUSIQUE_ROTATION_JSON", "/opt/radio/liquidsoap/musique_rotation.json"
 )
 
+# Fichier RELU EN CONTINU par radio.liq (comme musique_rotation.json ci-
+# dessus), a chaque selection d'une musique : playlists thematiques
+# programmees a l'avance (Noel, ete, braderie...), voir /playlists cote
+# appli web et active_playlist_files dans radio.liq. Un changement ici
+# prend effet au plus tard a la prochaine selection de musique, sans
+# redemarrer Liquidsoap - y compris le changement de jour qui active/
+# desactive une playlist selon ses dates.
+PLAYLISTS_JSON_PATH = os.environ.get(
+    "RADIO_PLAYLISTS_JSON", "/opt/radio/liquidsoap/playlists.json"
+)
+
 # Cle de session Flask - a definir via variable d'environnement en prod
 SECRET_KEY = os.environ.get("RADIO_SECRET_KEY", "change-moi-en-production")
 

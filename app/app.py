@@ -22,6 +22,7 @@ from settings_bp import bp as settings_bp
 from api import bp as api_bp
 from relays import bp as relays_bp
 from pub_slots import bp as pub_slots_bp
+from playlists import bp as playlists_bp
 from logs_bp import bp as logs_bp
 
 
@@ -37,14 +38,15 @@ def create_app():
     database.init_db(app)
 
     # Traitement audio (normalize/crossfade/blank_removal), frequence
-    # d'echantillonnage et fenetre de non-repetition des musiques (voir
-    # liquidsoap/radio.liq) : au demarrage de l'appli, on re-ecrit
-    # audio_fx.json/audio_format.json/musique_rotation.json depuis les
-    # reglages en base (au cas ou le fichier manque, ex. premiere mise a
-    # jour depuis une version anterieure a ces fonctionnalites) et on
-    # repousse a chaud ceux des traitements audio qui le permettent, au cas
-    # ou Liquidsoap aurait ete redemarre independamment. Best-effort dans
-    # tous les cas : ca ne doit jamais empecher l'appli de demarrer.
+    # d'echantillonnage, fenetre de non-repetition des musiques et playlists
+    # thematiques (voir liquidsoap/radio.liq) : au demarrage de l'appli, on
+    # re-ecrit audio_fx.json/audio_format.json/musique_rotation.json/
+    # playlists.json depuis la base (au cas ou un fichier manque, ex.
+    # premiere mise a jour depuis une version anterieure a ces
+    # fonctionnalites) et on repousse a chaud ceux des traitements audio qui
+    # le permettent, au cas ou Liquidsoap aurait ete redemarre
+    # independamment. Best-effort dans tous les cas : ca ne doit jamais
+    # empecher l'appli de demarrer.
     with app.app_context():
         try:
             current_settings = database.get_all_settings()
@@ -57,6 +59,11 @@ def create_app():
             liquidsoap_client.write_musique_rotation_file(
                 app.config["MUSIQUE_ROTATION_JSON_PATH"], current_settings
             )
+            liquidsoap_client.write_playlists_file(
+                app.config["PLAYLISTS_JSON_PATH"],
+                database.list_playlists(),
+                app.config["MUSIQUES_DIR"],
+            )
             liquidsoap_client.sync_audio_fx(app.config["LIQUIDSOAP_API_URL"], current_settings)
         except OSError:
             pass
@@ -68,6 +75,7 @@ def create_app():
     app.register_blueprint(api_bp)
     app.register_blueprint(relays_bp)
     app.register_blueprint(pub_slots_bp)
+    app.register_blueprint(playlists_bp)
     app.register_blueprint(logs_bp)
 
     @app.template_filter("duree")
