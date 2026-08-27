@@ -2,6 +2,11 @@
 {% block title %}{{ cfg.label }}{% endblock %}
 {% block content %}
 
+{% macro sort_link(col, label) %}
+  {% set next_dir = 'desc' if (sort == col and dir == 'asc') else 'asc' %}
+  <a href="{{ url_for(request.endpoint, q=search, sort=col, dir=next_dir) }}" class="sort-link">{{ label }}{% if sort == col %}<span class="sort-arrow">{{ "▲" if dir == "asc" else "▼" }}</span>{% endif %}</a>
+{% endmacro %}
+
 <div class="page-header">
   <h1>{{ cfg.label }}</h1>
   {% if category == "pub" %}
@@ -29,10 +34,13 @@
   <table class="table">
     <thead>
       <tr>
-        <th>Titre</th>
-        <th>Artiste</th>
+        <th>{{ sort_link('title', 'Titre') }}</th>
+        <th>{{ sort_link('artist', 'Artiste') }}</th>
         <th>Durée</th>
-        <th>Ajouté le</th>
+        <th>{{ sort_link('uploaded_at', 'Ajouté le') }}</th>
+        {% if category == "musique" %}
+        <th>Playlists</th>
+        {% endif %}
         <th>{{ "Planifiée" if category == "pub" else "Actif" }}</th>
         <th></th>
       </tr>
@@ -45,6 +53,16 @@
         <td>{{ t.artist or "" }}</td>
         <td>{{ t.duration | duree }}</td>
         <td>{{ t.uploaded_at[:10] }}</td>
+        {% if category == "musique" %}
+        <td>
+          {% set names = track_playlists.get(t.id) %}
+          {% if names %}
+          {{ names | join(', ') }}
+          {% else %}
+          <span class="muted">—</span>
+          {% endif %}
+        </td>
+        {% endif %}
         <td>
           {% if category == "pub" %}
           <span class="pill {{ 'pill-ok' if is_scheduled else 'pill-down' }}">
@@ -71,7 +89,7 @@
         </td>
       </tr>
       {% else %}
-      <tr><td colspan="6" class="muted">Aucun élément pour l'instant.</td></tr>
+      <tr><td colspan="{{ 7 if category == 'musique' else 6 }}" class="muted">Aucun élément pour l'instant.</td></tr>
       {% endfor %}
     </tbody>
   </table>

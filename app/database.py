@@ -253,7 +253,20 @@ def add_track(category, filename, title=None, artist=None, duration=None):
     return cur.lastrowid
 
 
-def list_tracks(category, search=None, active_only=False):
+# Colonnes triables depuis l'entete du tableau (Bibliotheque/Jingles/Pubs,
+# voir library.py/library.html) -> expression SQL correspondante.
+# COALESCE(NULLIF(title, ''), filename) reproduit le "t.title or t.filename"
+# affiche dans le tableau, pour que le tri corresponde a ce que l'utilisateur
+# voit vraiment. COLLATE NOCASE pour un tri alphabetique insensible a la
+# casse (sinon "aloe" passerait apres "ALOE").
+_SORTABLE_COLUMNS = {
+    "title": "COALESCE(NULLIF(title, ''), filename) COLLATE NOCASE",
+    "artist": "COALESCE(NULLIF(artist, ''), '') COLLATE NOCASE",
+    "uploaded_at": "uploaded_at",
+}
+
+
+def list_tracks(category, search=None, active_only=False, sort=None, direction="desc"):
     db = get_db()
     q = "SELECT * FROM tracks WHERE category = ?"
     params = [category]
@@ -263,7 +276,14 @@ def list_tracks(category, search=None, active_only=False):
         q += " AND (title LIKE ? OR artist LIKE ? OR filename LIKE ?)"
         like = f"%{search}%"
         params += [like, like, like]
-    q += " ORDER BY uploaded_at DESC"
+
+    order_col = _SORTABLE_COLUMNS.get(sort, "uploaded_at")
+    order_dir = "ASC" if direction == "asc" else "DESC"
+    q += f" ORDER BY {order_col} {order_dir}"
+    # Second critere stable (ajout le plus recent d'abord) pour departager
+    # les egalites, ex. plusieurs titres sans artiste renseigne.
+    if sort in ("title", "artist"):
+        q += ", uploaded_at DESC"
     return db.execute(q, params).fetchall()
 
 
@@ -562,6 +582,23 @@ def get_playlist_track_ids(playlist_id):
         (playlist_id,),
     ).fetchall()
     return [r["track_id"] for r in rows]
+
+
+def track_playlist_names_map():
+    """track_id -> liste des noms de playlists auxquelles il est assigne
+    (toutes, actives ou non) - pour la colonne "Playlists" de la
+    Bibliotheque (voir library.py/library.html). Une seule requete groupee
+    plutot qu'un aller-retour base par musique affichee."""
+    db = get_db()
+    rows = db.execute(
+        "SELECT pt.track_id AS track_id, p.name AS name "
+        "FROM playlist_tracks pt JOIN playlists p ON p.id = pt.playlist_id "
+        "ORDER BY p.id"
+    ).fetchall()
+    result = {}
+    for r in rows:
+        result.setdefault(r["track_id"], []).append(r["name"])
+    return result
 
 
 def list_playlists_light():

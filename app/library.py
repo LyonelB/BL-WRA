@@ -74,9 +74,15 @@ def _play_now_enabled(category):
     return database.get_setting(f"{category}_play_now_enabled", "1") == "1"
 
 
+_VALID_SORT_COLUMNS = {"title", "artist", "uploaded_at"}
+
+
 def _list_view(category):
     search = request.args.get("q", "").strip() or None
-    tracks = database.list_tracks(category, search=search)
+    sort = request.args.get("sort", "")
+    sort = sort if sort in _VALID_SORT_COLUMNS else None
+    direction = "asc" if request.args.get("dir") == "asc" else "desc"
+    tracks = database.list_tracks(category, search=search, sort=sort, direction=direction)
     counts = database.count_tracks().get(category, {"total": 0, "actifs": 0})
     cfg = CATEGORY_CONFIG[category]
     play_now_enabled = _play_now_enabled(category)
@@ -87,6 +93,9 @@ def _list_view(category):
     extra = {}
     if category == "musique":
         extra["musique_no_repeat_minutes"] = database.get_setting("musique_no_repeat_minutes", 120)
+        # Colonne "Playlists" du tableau (voir library.html) : a quelle(s)
+        # playlist(s) thematique(s) chaque musique est deja assignee.
+        extra["track_playlists"] = database.track_playlist_names_map()
     elif category == "jingle":
         extra["jingle_every_n_titles"] = database.get_setting("jingle_every_n_titles", 4)
     elif category == "pub":
@@ -102,6 +111,8 @@ def _list_view(category):
         tracks=tracks,
         counts=counts,
         search=search or "",
+        sort=sort or "",
+        dir=direction,
         category=category,
         cfg=cfg,
         show_jouer=cfg["show_jouer"] and play_now_enabled,
