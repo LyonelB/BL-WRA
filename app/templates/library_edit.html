@@ -30,9 +30,11 @@
     <label>Playlists thématiques
       <div class="checkbox-list">
         {% for p in all_playlists %}
+        {% set sd = p.start_date.split('-') %}
+        {% set ed = p.end_date.split('-') %}
         <label class="checkbox-list-item">
           <input type="checkbox" name="playlist_ids" value="{{ p.id }}" {{ "checked" if p.id in assigned_playlist_ids else "" }}>
-          {{ p.name }} (du {{ p.start_date.split('-')[1] }}/{{ p.start_date.split('-')[0] }} au {{ p.end_date.split('-')[1] }}/{{ p.end_date.split('-')[0] }})
+          {{ p.name }} (du {{ sd[2] }}/{{ sd[1] }}/{{ sd[0] }} au {{ ed[2] }}/{{ ed[1] }}/{{ ed[0] }})
         </label>
         {% else %}
         <p class="hint">Aucune playlist pour l'instant - créez-en depuis l'onglet Playlists.</p>

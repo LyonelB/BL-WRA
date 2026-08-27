@@ -6,11 +6,14 @@ Pas d'ORM, comme dans bl-fmo/fm-monitor : une base SQLite simple, quelques
 fonctions d'acces claires. Suffisant pour une webradio locale.
 """
 
+import logging
 import sqlite3
 import time
 from datetime import datetime
 
 from flask import g, current_app
+
+log = logging.getLogger("database")
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (
@@ -85,10 +88,13 @@ CREATE INDEX IF NOT EXISTS idx_pub_slot_tracks_slot ON pub_slot_tracks(slot_id);
 CREATE TABLE IF NOT EXISTS playlists (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
-    -- Bornes de periode au format "MM-DD" (ex. "12-01"), repetees chaque
-    -- annee - voir playlists.py/liquidsoap_client.write_playlists_file pour
-    -- le calcul de start_key/end_key (comparaison numerique geree cote
-    -- radio.liq, qui gere aussi le passage d'une annee sur l'autre).
+    -- Bornes de periode au format "AAAA-MM-JJ" (ex. "2026-12-01") : une
+    -- playlist couvre une periode precise, avec annee (pas de repetition
+    -- automatique - voir playlists.py pour le pourquoi). Pour une periode
+    -- recurrente (Noel...), il faut mettre a jour les annees chaque annee,
+    -- ou dupliquer la playlist. Voir playlists.py/
+    -- liquidsoap_client.write_playlists_file pour le calcul de
+    -- start_key/end_key (comparaison numerique geree cote radio.liq).
     start_date TEXT NOT NULL,
     end_date TEXT NOT NULL,
     active INTEGER NOT NULL DEFAULT 1,
@@ -125,6 +131,7 @@ def init_db(app):
         db = get_db()
         db.executescript(SCHEMA)
         _migrate_pub_slots_days(db)
+        _migrate_playlists_full_dates(db)
         db.commit()
         _seed_defaults(app, db)
 
@@ -142,6 +149,35 @@ def _migrate_pub_slots_days(db):
         db.execute(
             "ALTER TABLE pub_slots ADD COLUMN days TEXT NOT NULL DEFAULT '1,2,3,4,5,6,7'"
         )
+
+
+def _migrate_playlists_full_dates(db):
+    """Convertit les playlists creees avant l'ajout de l'annee (format
+    "MM-DD", ex. "12-01") vers le format complet "AAAA-MM-JJ". On prend
+    l'annee en cours comme point de depart ; si la periode franchissait deja
+    le passage a la nouvelle annee (ex. Noel : "12-01" -> "01-06", ou
+    end_date < start_date une fois zero-remplis), la date de fin recoit
+    l'annee suivante pour rester une periode chronologiquement valide.
+    N'affecte que les rangees encore au vieux format (5 caracteres, une
+    seule annee) - les playlists deja migrees ou creees depuis l'ajout de ce
+    champ (10 caracteres) ne sont pas touchees."""
+    year = datetime.now().year
+    rows = db.execute("SELECT id, start_date, end_date FROM playlists").fetchall()
+    for row in rows:
+        start, end = row["start_date"], row["end_date"]
+        if len(start) == 5 and len(end) == 5:
+            new_start = f"{year}-{start}"
+            end_year = year + 1 if end < start else year
+            new_end = f"{end_year}-{end}"
+            db.execute(
+                "UPDATE playlists SET start_date = ?, end_date = ? WHERE id = ?",
+                (new_start, new_end, row["id"]),
+            )
+            log.warning(
+                "Playlist #%s : dates migrees vers le format avec annee (%s -> %s, "
+                "%s -> %s) - a verifier/ajuster depuis Playlists si besoin.",
+                row["id"], start, new_start, end, new_end,
+            )
 
 
 def _seed_defaults(app, db):

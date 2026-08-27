@@ -231,6 +231,18 @@ input:focus { outline: none; border-color: var(--accent); }
    voir Reglages -> Traitement audio) : 420px les faisait passer a la ligne
    inutilement alors que la carte a bien plus de place. */
 .settings-form-wide { max-width: 640px; }
+/* Formulaires "ajouter/modifier une playlist" (voir playlists.html,
+   playlist_edit.html) : pas de plafond, la carte prend toute la largeur
+   disponible (jusqu'a .content, 980px) - date jour/mois/annee + longue
+   liste de musiques a cocher profitent de la place. */
+.settings-form-full { max-width: none; }
+
+.date-picker input[type="number"] {
+  width: 90px;
+}
+.date-picker input[type="number"].year {
+  width: 110px;
+}
 
 .checkbox-list {
   margin-top: 6px;

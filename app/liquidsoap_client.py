@@ -145,17 +145,19 @@ def write_playlists_file(path, playlists_with_tracks, musiques_dir):
     fichier JSON RELU EN CONTINU par radio.liq (comme
     write_musique_rotation_file) : a chaque selection d'une musique,
     radio.liq determine si l'une d'elles est active aujourd'hui (dates
-    start_date/end_date, format "MM-DD") et si oui l'utilise a la place de
-    la bibliotheque complete (voir active_playlist_files dans radio.liq).
+    start_date/end_date, format "AAAA-MM-JJ", periode precise sans
+    repetition automatique) et si oui l'utilise a la place de la
+    bibliotheque complete (voir active_playlist_files dans radio.liq).
 
     "playlists_with_tracks" est le format renvoye par database.list_playlists
     ([{"playlist": row, "tracks": [row, ...]}, ...], dans l'ordre de
     priorite = ordre de creation).
 
-    start_key/end_key (ex. "12-25" -> 1225) sont precalcules ici plutot que
-    parses cote Liquidsoap : plus simple, et la comparaison numerique gere
-    nativement le passage d'une annee sur l'autre (ex. Noel : 1er decembre
-    -> 6 janvier, start_key=1201 > end_key=106).
+    start_key/end_key (ex. "2026-12-25" -> 20261225) sont precalcules ici
+    plutot que parses cote Liquidsoap : plus simple, et la comparaison
+    numerique directe (start_key <= today_key <= end_key) suffit puisque
+    chaque playlist porte desormais sa propre annee - plus besoin de gerer
+    le passage d'une annee sur l'autre cote Liquidsoap.
     """
     payload = {"playlists": []}
     for entry in playlists_with_tracks:

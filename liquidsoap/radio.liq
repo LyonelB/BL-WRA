@@ -171,13 +171,14 @@ musique_history = ref([])
 musique_history_max_seconds = 6. * 60. * 60.
 
 # ---------------------------------------------------------------------------
-# Playlists thematiques (27/08) : une periode programmee a l'avance (dates
-# "JJ/MM", repetees chaque annee) pendant laquelle seules les musiques
-# assignees a cette playlist sont diffusees, a la place de la bibliotheque
-# complete. playlists.json est ecrit cote Flask avec, pour chaque playlist,
-# start_key/end_key deja precalcules (ex. "12-25" -> 1225) : la comparaison
-# numerique ci-dessous gere nativement le passage d'une annee sur l'autre
-# (ex. Noel : 1er decembre -> 6 janvier, start_key=1201 > end_key=106).
+# Playlists thematiques (27/08, annee ajoutee le 27/08 egalement) : une
+# periode programmee a l'avance (dates "JJ/MM/AAAA", precises - pas de
+# repetition automatique d'une annee sur l'autre) pendant laquelle seules
+# les musiques assignees a cette playlist sont diffusees, a la place de la
+# bibliotheque complete. playlists.json est ecrit cote Flask avec, pour
+# chaque playlist, start_key/end_key deja precalcules (ex. "2026-12-25" ->
+# 20261225) : simple comparaison numerique ci-dessous, chaque playlist
+# portant deja sa propre annee de debut et de fin.
 # ---------------------------------------------------------------------------
 
 def load_playlists() =
@@ -205,15 +206,9 @@ end
 # par securite plutot que de faire planter la selection.
 def active_playlist_files() =
   today = time.local(time())
-  today_key = today.month * 100 + today.day
+  today_key = today.year * 10000 + today.month * 100 + today.day
   matches = list.filter(fun (p) ->
-      p.active and (
-        if p.start_key <= p.end_key then
-          today_key >= p.start_key and today_key <= p.end_key
-        else
-          today_key >= p.start_key or today_key <= p.end_key
-        end
-      ),
+      p.active and today_key >= p.start_key and today_key <= p.end_key,
     load_playlists()
   )
   if list.length(matches) == 0 then

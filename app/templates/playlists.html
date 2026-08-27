@@ -11,9 +11,10 @@
   Une playlist thématique programmée à l'avance (Noël, été, braderie...)
   remplace complètement la bibliothèque habituelle de musiques pendant sa
   période active - la bibliothèque normale reprend automatiquement une fois
-  la période terminée, sans intervention. Les dates se répètent chaque
-  année (pas besoin de recréer "Noël" tous les ans). La contrainte
-  anti-répétition (Bibliothèque -> Rotation) continue de s'appliquer parmi
+  la période terminée, sans intervention. Chaque playlist couvre une
+  période précise (avec année) : pour "Noël" par exemple, il faudra ajuster
+  les années chaque année depuis "Modifier", ou créer une nouvelle playlist.
+  La contrainte anti-répétition (Bibliothèque -> Rotation) continue de s'appliquer parmi
   les titres de la playlist active. En cas de chevauchement entre deux
   playlists actives à la même date, la plus ancienne (créée en premier) est
   prioritaire.
@@ -29,7 +30,9 @@
       {% set p = entry.playlist %}
       <tr class="{{ '' if p.active else 'row-inactive' }}">
         <td>{{ p.name }}</td>
-        <td>Du {{ p.start_date.split('-')[1] }}/{{ p.start_date.split('-')[0] }} au {{ p.end_date.split('-')[1] }}/{{ p.end_date.split('-')[0] }}</td>
+        {% set sd = p.start_date.split('-') %}
+        {% set ed = p.end_date.split('-') %}
+        <td>Du {{ sd[2] }}/{{ sd[1] }}/{{ sd[0] }} au {{ ed[2] }}/{{ ed[1] }}/{{ ed[0] }}</td>
         <td>{{ entry.tracks|length }}</td>
         <td>
           <form method="post" action="{{ url_for('playlists.activer', playlist_id=p.id) }}">
@@ -52,22 +55,26 @@
   </table>
 
   <h2 style="margin-top: 22px;">Ajouter une playlist</h2>
-  <form method="post" action="{{ url_for('playlists.ajouter') }}" class="settings-form">
+  <form method="post" action="{{ url_for('playlists.ajouter') }}" class="settings-form settings-form-full">
     <label>Nom
-      <input type="text" name="name" required placeholder="ex. Noël">
+      <input type="text" name="name" required placeholder="ex. Noël 2026">
     </label>
-    <label>Période (répétée chaque année)</label>
-    <div class="days-picker" style="align-items: center;">
+    <label>Période</label>
+    <div class="days-picker date-picker" style="align-items: center;">
       <span>Du</span>
-      <input type="number" name="start_day" min="1" max="31" placeholder="JJ" required style="width: 64px;">
+      <input type="number" name="start_day" min="1" max="31" placeholder="JJ" required>
       <span>/</span>
-      <input type="number" name="start_month" min="1" max="12" placeholder="MM" required style="width: 64px;">
+      <input type="number" name="start_month" min="1" max="12" placeholder="MM" required>
+      <span>/</span>
+      <input type="number" name="start_year" min="2000" max="2100" placeholder="AAAA" required class="year">
       <span>au</span>
-      <input type="number" name="end_day" min="1" max="31" placeholder="JJ" required style="width: 64px;">
+      <input type="number" name="end_day" min="1" max="31" placeholder="JJ" required>
       <span>/</span>
-      <input type="number" name="end_month" min="1" max="12" placeholder="MM" required style="width: 64px;">
+      <input type="number" name="end_month" min="1" max="12" placeholder="MM" required>
+      <span>/</span>
+      <input type="number" name="end_year" min="2000" max="2100" placeholder="AAAA" required class="year">
     </div>
-    <p class="hint">Ex. Noël : du 1/12 au 6/1 (la période peut chevaucher le passage à la nouvelle année).</p>
+    <p class="hint">Ex. Noël : du 01/12/2026 au 06/01/2027 (la fin peut être sur l'année suivante).</p>
     <label>Musiques de cette playlist
       <div class="checkbox-list">
         {% for t in all_musiques %}

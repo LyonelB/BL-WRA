@@ -6,25 +6,29 @@
   <h1>Modifier la playlist</h1>
 </div>
 
-<section class="card" style="max-width: 560px;">
-  <form method="post" class="settings-form">
+<section class="card">
+  <form method="post" class="settings-form settings-form-full">
     <label>Nom
       <input type="text" name="name" value="{{ playlist.name }}" required>
     </label>
-    <label>Période (répétée chaque année)</label>
+    <label>Période</label>
     {% set start_parts = playlist.start_date.split('-') %}
     {% set end_parts = playlist.end_date.split('-') %}
-    <div class="days-picker" style="align-items: center;">
+    <div class="days-picker date-picker" style="align-items: center;">
       <span>Du</span>
-      <input type="number" name="start_day" min="1" max="31" value="{{ start_parts[1]|int }}" required style="width: 64px;">
+      <input type="number" name="start_day" min="1" max="31" value="{{ start_parts[2]|int }}" required>
       <span>/</span>
-      <input type="number" name="start_month" min="1" max="12" value="{{ start_parts[0]|int }}" required style="width: 64px;">
+      <input type="number" name="start_month" min="1" max="12" value="{{ start_parts[1]|int }}" required>
+      <span>/</span>
+      <input type="number" name="start_year" min="2000" max="2100" value="{{ start_parts[0]|int }}" required class="year">
       <span>au</span>
-      <input type="number" name="end_day" min="1" max="31" value="{{ end_parts[1]|int }}" required style="width: 64px;">
+      <input type="number" name="end_day" min="1" max="31" value="{{ end_parts[2]|int }}" required>
       <span>/</span>
-      <input type="number" name="end_month" min="1" max="12" value="{{ end_parts[0]|int }}" required style="width: 64px;">
+      <input type="number" name="end_month" min="1" max="12" value="{{ end_parts[1]|int }}" required>
+      <span>/</span>
+      <input type="number" name="end_year" min="2000" max="2100" value="{{ end_parts[0]|int }}" required class="year">
     </div>
-    <p class="hint">Ex. Noël : du 1/12 au 6/1 (la période peut chevaucher le passage à la nouvelle année).</p>
+    <p class="hint">Ex. Noël : du 01/12/2026 au 06/01/2027 (la fin peut être sur l'année suivante).</p>
     <label>Musiques de cette playlist
       <div class="checkbox-list">
         {% for t in all_musiques %}

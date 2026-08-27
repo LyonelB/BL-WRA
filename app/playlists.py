@@ -8,12 +8,16 @@ musique_rotation.json) : un changement ici prend effet au plus tard a la
 prochaine selection de musique, sans redemarrer Liquidsoap - y compris le
 changement de jour qui active/desactive une playlist selon ses dates.
 
-Les dates sont au format jour/mois et se repetent chaque annee (pas besoin
-de recreer la playlist "Noel" tous les ans). Si plusieurs playlists actives
-se chevauchent a une date donnee, la plus ancienne (id le plus petit, cf.
-database.list_playlists) est prioritaire - a eviter en pratique, mais ca ne
-bloque rien.
+Les dates sont des periodes precises (jour/mois/annee) : une playlist ne se
+repete pas automatiquement d'une annee sur l'autre. Pour une periode qui
+revient chaque annee (Noel, ete...), il faut mettre a jour les annees
+depuis "Modifier", ou creer une nouvelle playlist pour l'annee suivante. Si
+plusieurs playlists actives se chevauchent a une date donnee, la plus
+ancienne (id le plus petit, cf. database.list_playlists) est prioritaire -
+a eviter en pratique, mais ca ne bloque rien.
 """
+
+from datetime import date
 
 from flask import Blueprint, current_app, flash, redirect, render_template, request, url_for
 
@@ -22,8 +26,6 @@ import liquidsoap_client
 from auth import login_required
 
 bp = Blueprint("playlists", __name__)
-
-_DAYS_IN_MONTH = {1: 31, 2: 29, 3: 31, 4: 30, 5: 31, 6: 30, 7: 31, 8: 31, 9: 30, 10: 31, 11: 30, 12: 31}
 
 
 def _parse_track_ids():
@@ -37,19 +39,23 @@ def _parse_track_ids():
 
 
 def _parse_bound(prefix):
-    """Lit un couple jour/mois du formulaire (ex. 'start_day'/'start_month'),
-    renvoie "MM-DD" ou None si invalide (mois hors 1-12, jour hors plage
-    pour ce mois - 29 accepte pour fevrier meme les annees non bissextiles,
-    pour ne pas avoir a gerer les annees ici : une periode qui inclut le 29
-    fevrier est simplement un jour plus large certaines annees)."""
+    """Lit un triplet jour/mois/annee du formulaire (ex. 'start_day'/
+    'start_month'/'start_year'), renvoie "AAAA-MM-JJ" ou None si invalide
+    (mois hors 1-12, jour inexistant pour ce mois cette annee-la - dont le
+    29 fevrier hors annee bissextile -, ou annee hors d'une plage raisonnable).
+    """
     try:
         day = int(request.form.get(f"{prefix}_day", ""))
         month = int(request.form.get(f"{prefix}_month", ""))
+        year = int(request.form.get(f"{prefix}_year", ""))
     except ValueError:
         return None
-    if month not in _DAYS_IN_MONTH or not (1 <= day <= _DAYS_IN_MONTH[month]):
+    if not (2000 <= year <= 2100):
         return None
-    return f"{month:02d}-{day:02d}"
+    try:
+        return date(year, month, day).isoformat()
+    except ValueError:
+        return None
 
 
 def _sync():
@@ -85,6 +91,14 @@ def ajouter():
     if not start_date or not end_date:
         flash("Dates invalides.", "error")
         return redirect(url_for("playlists.index"))
+    if end_date < start_date:
+        flash(
+            "La date de fin est avant la date de début - pour une période qui "
+            "chevauche le 1er janvier (ex. Noël), mettez l'année suivante sur "
+            "la date de fin.",
+            "error",
+        )
+        return redirect(url_for("playlists.index"))
 
     database.add_playlist(name, start_date, end_date, _parse_track_ids())
     _sync()
@@ -109,6 +123,14 @@ def modifier(playlist_id):
             return redirect(url_for("playlists.modifier", playlist_id=playlist_id))
         if not start_date or not end_date:
             flash("Dates invalides.", "error")
+            return redirect(url_for("playlists.modifier", playlist_id=playlist_id))
+        if end_date < start_date:
+            flash(
+                "La date de fin est avant la date de début - pour une période qui "
+                "chevauche le 1er janvier (ex. Noël), mettez l'année suivante sur "
+                "la date de fin.",
+                "error",
+            )
             return redirect(url_for("playlists.modifier", playlist_id=playlist_id))
 
         database.update_playlist(playlist_id, name, start_date, end_date, _parse_track_ids())
