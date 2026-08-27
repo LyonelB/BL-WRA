@@ -564,6 +564,54 @@ def get_playlist_track_ids(playlist_id):
     return [r["track_id"] for r in rows]
 
 
+def list_playlists_light():
+    """Comme list_playlists mais sans les musiques associees (juste les
+    lignes playlists) - pour peupler une liste de cases a cocher depuis la
+    page Modifier d'UNE musique (vue "par musique", voir library.py et
+    get_track_playlist_ids/set_track_playlists ci-dessous, complementaires
+    de la vue "par playlist" ci-dessus)."""
+    db = get_db()
+    return db.execute("SELECT * FROM playlists ORDER BY id").fetchall()
+
+
+def get_track_playlist_ids(track_id):
+    """Playlists auxquelles cette musique est deja assignee - pour
+    pre-cocher le formulaire de modification de la musique."""
+    db = get_db()
+    rows = db.execute(
+        "SELECT playlist_id FROM playlist_tracks WHERE track_id = ?", (track_id,)
+    ).fetchall()
+    return [r["playlist_id"] for r in rows]
+
+
+def set_track_playlists(track_id, playlist_ids):
+    """Met a jour l'appartenance d'UNE musique a des playlists, depuis la
+    page Modifier de la Bibliotheque. Complementaire de _set_playlist_tracks
+    (qui gere l'inverse, depuis la page d'une playlist) : ajoute la musique
+    a la fin (position = max+1) de chaque playlist nouvellement cochee,
+    la retire des playlists decochees, ne touche pas a l'ordre des autres
+    musiques deja assignees ailleurs."""
+    db = get_db()
+    current = set(get_track_playlist_ids(track_id))
+    desired = {int(p) for p in playlist_ids}
+
+    for playlist_id in current - desired:
+        db.execute(
+            "DELETE FROM playlist_tracks WHERE playlist_id = ? AND track_id = ?",
+            (playlist_id, track_id),
+        )
+    for playlist_id in desired - current:
+        row = db.execute(
+            "SELECT COALESCE(MAX(position), -1) AS maxpos FROM playlist_tracks WHERE playlist_id = ?",
+            (playlist_id,),
+        ).fetchone()
+        db.execute(
+            "INSERT INTO playlist_tracks (playlist_id, track_id, position) VALUES (?, ?, ?)",
+            (playlist_id, track_id, row["maxpos"] + 1),
+        )
+    db.commit()
+
+
 def _set_playlist_tracks(db, playlist_id, track_ids):
     db.execute("DELETE FROM playlist_tracks WHERE playlist_id = ?", (playlist_id,))
     for pos, track_id in enumerate(track_ids):

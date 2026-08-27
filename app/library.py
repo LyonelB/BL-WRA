@@ -184,10 +184,28 @@ def _edit_view(category, track_id):
         database.update_track_metadata(track_id, title, artist)
         if cfg.get("editable_active"):
             database.set_track_active(track_id, bool(request.form.get("active")))
+        if category == "musique":
+            # Assignation a des playlists depuis la fiche de la musique
+            # elle-meme (complementaire de la page Playlists, voir
+            # database.set_track_playlists) : resynchronisation de
+            # playlists.json necessaire, comme pour toute modification cote
+            # Playlists (voir playlists.py, _sync).
+            playlist_ids = request.form.getlist("playlist_ids")
+            database.set_track_playlists(track_id, playlist_ids)
+            liquidsoap_client.write_playlists_file(
+                current_app.config["PLAYLISTS_JSON_PATH"],
+                database.list_playlists(),
+                current_app.config["MUSIQUES_DIR"],
+            )
         flash("Modifications enregistrées.", "success")
         return redirect(url_for(f"library.{cfg['url']}"))
 
-    return render_template("library_edit.html", track=track, cfg=cfg, category=category)
+    extra = {}
+    if category == "musique":
+        extra["all_playlists"] = database.list_playlists_light()
+        extra["assigned_playlist_ids"] = set(database.get_track_playlist_ids(track_id))
+
+    return render_template("library_edit.html", track=track, cfg=cfg, category=category, **extra)
 
 
 @bp.route("/media/<category>/<path:filename>")

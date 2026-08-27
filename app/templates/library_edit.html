@@ -26,6 +26,20 @@
       Actif
     </label>
     {% endif %}
+    {% if category == "musique" %}
+    <label>Playlists thématiques
+      <div class="checkbox-list">
+        {% for p in all_playlists %}
+        <label class="checkbox-list-item">
+          <input type="checkbox" name="playlist_ids" value="{{ p.id }}" {{ "checked" if p.id in assigned_playlist_ids else "" }}>
+          {{ p.name }} (du {{ p.start_date.split('-')[1] }}/{{ p.start_date.split('-')[0] }} au {{ p.end_date.split('-')[1] }}/{{ p.end_date.split('-')[0] }})
+        </label>
+        {% else %}
+        <p class="hint">Aucune playlist pour l'instant - créez-en depuis l'onglet Playlists.</p>
+        {% endfor %}
+      </div>
+    </label>
+    {% endif %}
     <div class="row-actions" style="justify-content: flex-start; margin-top: 6px;">
       <button type="submit" class="btn btn-primary">Enregistrer</button>
       <a href="{{ url_for('library.' ~ cfg.url) }}" class="btn btn-secondary">Annuler</a>
