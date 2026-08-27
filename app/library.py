@@ -216,6 +216,11 @@ def _edit_view(category, track_id):
         extra["all_playlists"] = database.list_playlists_light()
         extra["assigned_playlist_ids"] = set(database.get_track_playlist_ids(track_id))
 
+    # Historique de diffusion (play_log) : commun aux 3 categories, voir
+    # database.track_play_history.
+    extra["play_history"] = database.track_play_history(track["filename"])
+    extra["play_count"] = database.track_play_count(track["filename"])
+
     return render_template("library_edit.html", track=track, cfg=cfg, category=category, **extra)
 
 

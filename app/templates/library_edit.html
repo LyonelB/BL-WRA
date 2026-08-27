@@ -46,4 +46,28 @@
     </div>
   </form>
 </section>
+
+<section class="card" style="max-width: 420px;">
+  <h2>Historique de diffusion</h2>
+  {% if play_count %}
+  <p class="hint" style="margin-top: -4px;">
+    Diffusé {{ play_count }} fois au total{% if play_count > play_history|length %}, {{ play_history|length }} plus récentes ci-dessous{% endif %}.
+  </p>
+  <table class="table">
+    <thead>
+      <tr><th>Date</th><th>Heure</th></tr>
+    </thead>
+    <tbody>
+      {% for p in play_history %}
+      <tr>
+        <td>{{ p.played_at[8:10] }}/{{ p.played_at[5:7] }}/{{ p.played_at[0:4] }}</td>
+        <td>{{ p.played_at[11:16] }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="hint" style="margin-top: -4px;">Jamais diffusé pour l'instant.</p>
+  {% endif %}
+</section>
 {% endblock %}

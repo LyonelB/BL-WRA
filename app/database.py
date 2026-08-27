@@ -357,6 +357,26 @@ def recent_plays(limit=25):
     ).fetchall()
 
 
+def track_play_history(filename, limit=20):
+    """Dernieres diffusions d'un fichier donne (voir page "Modifier" de la
+    bibliotheque/jingles/pubs) - play_log est alimente pour les 3 categories
+    par rotation.handle_track_started a chaque on_track reel de Liquidsoap,
+    donc couvre musiques, jingles et pubs de la meme facon."""
+    db = get_db()
+    return db.execute(
+        "SELECT * FROM play_log WHERE filename = ? ORDER BY played_at DESC LIMIT ?",
+        (filename, limit),
+    ).fetchall()
+
+
+def track_play_count(filename):
+    db = get_db()
+    row = db.execute(
+        "SELECT COUNT(*) AS n FROM play_log WHERE filename = ?", (filename,)
+    ).fetchone()
+    return row["n"] if row else 0
+
+
 # --------------------------------------------------------------------------
 # Comptes utilisateurs
 # --------------------------------------------------------------------------
