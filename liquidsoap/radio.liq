@@ -252,7 +252,16 @@ def musique_next_request() =
     idx = random.int(min=0, max=list.length(pool))
     fallback_pick = list.nth(pool, 0)
     picked = list.nth(default=fallback_pick, pool, idx)
-    musique_history := list.add((picked, now), musique_history())
+    # musique_history n'est PAS mis a jour ici (voir on_musique_track plus
+    # bas, HISTORIQUE 27/08) : cette fonction est appelee par
+    # request.dynamic des qu'un prochain titre doit etre prepare a l'avance
+    # (pour le crossfade), pas seulement quand un titre commence reellement
+    # a l'antenne. L'enregistrer ici marquait un titre "recemment joue" des
+    # sa preparation plutot qu'a sa diffusion reelle, ce qui pouvait epuiser
+    # le pool de candidats bien plus vite que le veritable rythme d'ecoute
+    # et declencher le repli "bibliotheque trop petite" prematurement -
+    # cause identifiee de repetitions rapprochees constatees en prod malgre
+    # no_repeat_minutes=120.
     request.create(picked)
   end
 end
@@ -381,7 +390,21 @@ def post_now_playing(category, m) =
   end
 end
 
-musiques_raw.on_track(synchronous=false, fun (m) -> post_now_playing("musique", m))
+# HISTORIQUE 27/08 : musique_history (anti-repetition, voir
+# musique_next_request plus haut) est desormais alimente ICI - au moment ou
+# un titre commence REELLEMENT a l'antenne (on_track sur musiques_raw) -
+# plutot que dans musique_next_request lui-meme, qui peut etre appele en
+# avance (prefetch pour le crossfade) sans garantie que le titre choisi
+# soit effectivement diffuse au meme rythme. Faire coincider l'horodatage
+# de l'historique avec la diffusion reelle est ce qui rend la fenetre de
+# non-repetition fiable independamment du comportement de prefetch de
+# request.dynamic.
+def on_musique_track(m) =
+  musique_history := list.add((m["filename"], time()), musique_history())
+  post_now_playing("musique", m)
+end
+
+musiques_raw.on_track(synchronous=false, on_musique_track)
 prio.on_track(synchronous=false, fun (m) -> post_now_playing(m["category"], m))
 
 # ---------------------------------------------------------------------------
