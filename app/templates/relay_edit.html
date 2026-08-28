@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Modifier — serveur externe{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <h1>Modifier le serveur externe</h1>
+</div>
+
+<section class="card" style="max-width: 420px;">
+  <form method="post" class="settings-form">
+    <label>Nom
+      <input type="text" name="name" value="{{ relay.name }}" placeholder="Mon hébergeur radio">
+    </label>
+    <label>Hôte
+      <input type="text" name="host" value="{{ relay.host }}" placeholder="stream.monhebergeur.fr" required>
+    </label>
+    <label>Port
+      <input type="number" name="port" value="{{ relay.port }}" required>
+    </label>
+    <label>Point de montage
+      <input type="text" name="mount" value="{{ relay.mount }}" placeholder="/radio.mp3" required>
+    </label>
+    <label>Utilisateur source
+      <input type="text" name="user" value="{{ relay.user }}">
+    </label>
+    <label>Mot de passe source
+      <input type="password" name="password" placeholder="(inchangé si laissé vide)">
+    </label>
+    <div class="row-actions" style="justify-content: flex-start; margin-top: 6px;">
+      <button type="submit" class="btn btn-primary">Enregistrer</button>
+      <a href="{{ url_for('settings.reglages') }}" class="btn btn-secondary">Annuler</a>
+    </div>
+  </form>
+</section>
+{% endblock %}

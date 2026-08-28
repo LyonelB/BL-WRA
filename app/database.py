@@ -467,6 +467,27 @@ def add_relay(name, host, port, mount, user, password):
     return cur.lastrowid
 
 
+def update_relay(relay_id, name, host, port, mount, user, password=None):
+    """Modifie un relais existant sans avoir a le supprimer/recreer (ce qui
+    obligeait a ressaisir hote/port/point de montage/mot de passe pour un
+    simple changement de nom). "password" est optionnel : laisse a None (ou
+    chaine vide), le mot de passe actuel est conserve - pratique pour ne
+    changer que le nom sans avoir a le retaper/le retrouver."""
+    db = get_db()
+    if password:
+        db.execute(
+            "UPDATE relays SET name = ?, host = ?, port = ?, mount = ?, user = ?, password = ? "
+            "WHERE id = ?",
+            (name, host, port, mount, user or "source", password, relay_id),
+        )
+    else:
+        db.execute(
+            "UPDATE relays SET name = ?, host = ?, port = ?, mount = ?, user = ? WHERE id = ?",
+            (name, host, port, mount, user or "source", relay_id),
+        )
+    db.commit()
+
+
 def delete_relay(relay_id):
     db = get_db()
     db.execute("DELETE FROM relays WHERE id = ?", (relay_id,))

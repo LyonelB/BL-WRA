@@ -12,7 +12,7 @@ prenne effet (choix assume - voir README).
 import json
 import os
 
-from flask import Blueprint, current_app, flash, redirect, request, url_for
+from flask import Blueprint, current_app, flash, redirect, render_template, request, url_for
 
 import database
 from auth import login_required
@@ -70,6 +70,46 @@ def ajouter():
         "success",
     )
     return redirect(url_for("settings.reglages"))
+
+
+@bp.route("/reglages/relais/<int:relay_id>/modifier", methods=["GET", "POST"])
+@login_required
+def modifier(relay_id):
+    relay = database.get_relay(relay_id)
+    if not relay:
+        flash("Serveur introuvable.", "error")
+        return redirect(url_for("settings.reglages"))
+
+    if request.method == "POST":
+        name = request.form.get("name", "").strip() or "Serveur externe"
+        host = request.form.get("host", "").strip()
+        mount = request.form.get("mount", "").strip()
+        user = request.form.get("user", "").strip() or "source"
+        # Laisse vide : on garde le mot de passe actuel (voir
+        # database.update_relay) - evite d'avoir a le retaper/le retrouver
+        # pour un simple changement de nom.
+        password = request.form.get("password", "").strip()
+
+        try:
+            port = int(request.form.get("port", "8000"))
+        except ValueError:
+            flash("Port invalide.", "error")
+            return redirect(url_for("relays.modifier", relay_id=relay_id))
+
+        if not host or not mount:
+            flash("Hôte et point de montage sont obligatoires.", "error")
+            return redirect(url_for("relays.modifier", relay_id=relay_id))
+
+        database.update_relay(relay_id, name, host, port, mount, user, password or None)
+        write_relays_json(current_app._get_current_object())
+        flash(
+            "Serveur modifié. Redémarrez Liquidsoap pour appliquer : "
+            "sudo systemctl restart liquidsoap-radio",
+            "success",
+        )
+        return redirect(url_for("settings.reglages"))
+
+    return render_template("relay_edit.html", relay=relay)
 
 
 @bp.route("/reglages/relais/<int:relay_id>/supprimer", methods=["POST"])
