@@ -171,26 +171,36 @@ musique_history = ref([])
 musique_history_max_seconds = 6. * 60. * 60.
 
 # ---------------------------------------------------------------------------
-# Playlists thematiques (27/08, annee ajoutee le 27/08 egalement) : une
-# periode programmee a l'avance (dates "JJ/MM/AAAA", precises - pas de
-# repetition automatique d'une annee sur l'autre) pendant laquelle seules
-# les musiques assignees a cette playlist sont diffusees, a la place de la
-# bibliotheque complete. playlists.json est ecrit cote Flask avec, pour
-# chaque playlist, start_key/end_key deja precalcules (ex. "2026-12-25" ->
-# 20261225) : simple comparaison numerique ci-dessous, chaque playlist
-# portant deja sa propre annee de debut et de fin.
+# Playlists thematiques (27/08, annee ajoutee le 27/08, exclusivite ajoutee
+# le 28/08) : une periode programmee a l'avance (dates "JJ/MM/AAAA",
+# precises - pas de repetition automatique d'une annee sur l'autre) pendant
+# laquelle seules les musiques assignees a cette playlist sont diffusees, a
+# la place de la bibliotheque normale. playlists.json est ecrit cote Flask
+# avec, pour chaque playlist, start_key/end_key deja precalcules (ex.
+# "2026-12-25" -> 20261225) : simple comparaison numerique ci-dessous,
+# chaque playlist portant deja sa propre annee de debut et de fin.
+#
+# EXCLUSIVITE (28/08) : une musique assignee a une playlist ACTIVEE (le
+# bouton actif/inactif de la playlist, pas sa fenetre de dates) ne doit
+# jamais tourner dans la rotation normale en dehors de la periode de cette
+# playlist - sinon "Nah'mean" en playlist Noel pourrait quand meme repasser
+# un mardi de juillet. playlists.json fournit pour ca reserved_paths (calcule
+# cote Flask, union des musiques de toutes les playlists activees) :
+# library_files ci-dessous exclut ces chemins de la bibliotheque habituelle.
+# Desactiver une playlist (pas besoin de la supprimer) rend immediatement
+# ses musiques a la rotation normale.
 # ---------------------------------------------------------------------------
 
-def load_playlists() =
-  default = []
+def load_playlists_data() =
+  default = {playlists = [], reserved_paths = []}
   if file.exists(playlists_path) then
     try
       let json.parse (parsed : {playlists: [{id: int, name: string, start_date: string,
         end_date: string, start_key: int, end_key: int, active: bool,
-        track_paths: [string]}]}) = file.contents(playlists_path)
-      parsed.playlists
+        track_paths: [string]}], reserved_paths: [string]}) = file.contents(playlists_path)
+      parsed
     catch _ : [error.json] do
-      log(label="playlists", "playlists.json invalide, bibliotheque complete utilisee")
+      log(label="playlists", "playlists.json invalide, bibliotheque normale utilisee")
       default
     end
   else
@@ -198,18 +208,19 @@ def load_playlists() =
   end
 end
 
-# Fichiers de la playlist thematique active aujourd'hui, s'il y en a une, ou
-# null() sinon (bibliotheque complete utilisee dans ce cas). En cas de
-# chevauchement entre plusieurs playlists actives a la meme date, la
-# premiere dans l'ordre de creation (ordre du tableau JSON) est prioritaire.
-# Les fichiers qui n'existent plus (musique supprimee depuis) sont ecartes
-# par securite plutot que de faire planter la selection.
-def active_playlist_files() =
+# Fichiers de la playlist thematique active aujourd'hui parmi celles de
+# "data", s'il y en a une, ou null() sinon (bibliotheque normale utilisee
+# dans ce cas, voir library_files). En cas de chevauchement entre plusieurs
+# playlists actives a la meme date, la premiere dans l'ordre de creation
+# (ordre du tableau JSON) est prioritaire. Les fichiers qui n'existent plus
+# (musique supprimee depuis) sont ecartes par securite plutot que de faire
+# planter la selection.
+def active_playlist_files(data) =
   today = time.local(time())
   today_key = today.year * 10000 + today.month * 100 + today.day
   matches = list.filter(fun (p) ->
       p.active and today_key >= p.start_key and today_key <= p.end_key,
-    load_playlists()
+    data.playlists
   )
   if list.length(matches) == 0 then
     null()
@@ -218,6 +229,22 @@ def active_playlist_files() =
     existing = list.filter(fun (f) -> file.exists(f), chosen.track_paths)
     if list.length(existing) == 0 then null() else existing end
   end
+end
+
+# Bibliotheque "normale" (aucune playlist active aujourd'hui) : tout le
+# dossier musiques SAUF les musiques reservees a une playlist activee (voir
+# le commentaire EXCLUSIVITE plus haut) - une musique de la playlist Noel ne
+# doit jouer QUE pendant la periode de Noel, jamais le reste de l'annee.
+def library_files(data) =
+  all = file.ls(absolute=true, musiques_dir)
+  filtered = list.filter(fun (f) -> not list.mem(f, data.reserved_paths), all)
+  # Securite : si la totalite de la bibliotheque active se retrouve
+  # reservee (cas limite improbable - il faudrait que 100% des musiques
+  # actives soient assignees a une playlist activee) alors qu'aucune
+  # playlist n'est active aujourd'hui, il ne resterait plus rien pour la
+  # rotation normale. On retombe alors sur la bibliotheque complete plutot
+  # que de laisser l'antenne silencieuse.
+  if list.length(filtered) == 0 then all else filtered end
 end
 
 def musique_next_request() =
@@ -232,9 +259,10 @@ def musique_next_request() =
   recent_files = list.map(fun (e) -> fst(e), recent)
 
   # Playlist thematique active aujourd'hui si elle existe, sinon bibliotheque
-  # complete (comportement inchange par rapport a avant l'ajout des
-  # playlists).
-  all_files = null.default(active_playlist_files(), fun () -> file.ls(absolute=true, musiques_dir))
+  # normale (qui exclut les musiques reservees a une playlist activee, voir
+  # library_files plus haut).
+  playlists_data = load_playlists_data()
+  all_files = null.default(active_playlist_files(playlists_data), fun () -> library_files(playlists_data))
   candidates = list.filter(fun (f) -> not list.mem(f, recent_files), all_files)
   # Bibliotheque trop petite pour la fenetre choisie : on retombe sur la
   # liste complete plutot que de bloquer la diffusion.

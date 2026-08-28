@@ -147,7 +147,7 @@ def write_playlists_file(path, playlists_with_tracks, musiques_dir):
     radio.liq determine si l'une d'elles est active aujourd'hui (dates
     start_date/end_date, format "AAAA-MM-JJ", periode precise sans
     repetition automatique) et si oui l'utilise a la place de la
-    bibliotheque complete (voir active_playlist_files dans radio.liq).
+    bibliotheque normale (voir active_playlist_files dans radio.liq).
 
     "playlists_with_tracks" est le format renvoye par database.list_playlists
     ([{"playlist": row, "tracks": [row, ...]}, ...], dans l'ordre de
@@ -158,8 +158,18 @@ def write_playlists_file(path, playlists_with_tracks, musiques_dir):
     numerique directe (start_key <= today_key <= end_key) suffit puisque
     chaque playlist porte desormais sa propre annee - plus besoin de gerer
     le passage d'une annee sur l'autre cote Liquidsoap.
+
+    "reserved_paths" (28/08) : union des chemins de toutes les musiques
+    assignees a au moins une playlist ACTIVE (le bouton actif/inactif de la
+    playlist, pas sa fenetre de dates), tous calendriers confondus. Une fois
+    qu'une musique est assignee a une playlist activee, elle ne doit plus
+    jamais tourner dans la rotation "normale" en dehors de la periode de
+    cette playlist - voir library_files dans radio.liq, qui exclut ces
+    chemins de la bibliotheque habituelle. Desactiver la playlist (pas la
+    supprimer) rend ses musiques immediatement a la rotation normale.
     """
-    payload = {"playlists": []}
+    payload = {"playlists": [], "reserved_paths": []}
+    reserved_paths = set()
     for entry in playlists_with_tracks:
         p = entry["playlist"]
         try:
@@ -171,6 +181,8 @@ def write_playlists_file(path, playlists_with_tracks, musiques_dir):
             log.warning("Playlist %r ignoree (dates invalides)", p["name"])
             continue
         track_paths = [os.path.join(musiques_dir, t["filename"]) for t in entry["tracks"]]
+        if p["active"]:
+            reserved_paths.update(track_paths)
         payload["playlists"].append(
             {
                 "id": p["id"],
@@ -183,6 +195,7 @@ def write_playlists_file(path, playlists_with_tracks, musiques_dir):
                 "track_paths": track_paths,
             }
         )
+    payload["reserved_paths"] = sorted(reserved_paths)
     tmp_path = f"{path}.tmp"
     with open(tmp_path, "w", encoding="utf-8") as f:
         json.dump(payload, f)

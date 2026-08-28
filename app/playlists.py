@@ -15,6 +15,13 @@ depuis "Modifier", ou creer une nouvelle playlist pour l'annee suivante. Si
 plusieurs playlists actives se chevauchent a une date donnee, la plus
 ancienne (id le plus petit, cf. database.list_playlists) est prioritaire -
 a eviter en pratique, mais ca ne bloque rien.
+
+EXCLUSIVITE (28/08) : une musique assignee a une playlist activee (le
+bouton actif/inactif de la playlist, independant de sa fenetre de dates)
+est reservee a cette playlist - elle ne tourne PLUS dans la rotation
+normale en dehors de sa periode (voir liquidsoap_client.write_playlists_file
+et library_files dans radio.liq). Desactiver la playlist (sans la
+supprimer) rend immediatement ses musiques a la rotation normale.
 """
 
 from datetime import date
