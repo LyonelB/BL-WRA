@@ -215,25 +215,13 @@ def redemarrer_liquidsoap():
     d'echantillonnage, voir audio_fx_initial/audio_format_initial dans
     radio.liq). Le service radio-web tourne en tant qu'utilisateur "radio",
     qui doit avoir le droit sudo dedie (voir install/radio-sudoers)."""
-    try:
-        subprocess.run(
-            ["sudo", "/usr/bin/systemctl", "restart", "liquidsoap-radio"],
-            check=True, capture_output=True, timeout=15, text=True,
-        )
+    ok, error = liquidsoap_client.restart_liquidsoap_service()
+    if ok:
         database.set_setting("audio_fx_pending_restart", "0")
         database.set_setting("audio_sample_rate_pending_restart", "0")
         flash("Liquidsoap redémarré.", "success")
-    except subprocess.CalledProcessError as exc:
-        flash(
-            "Échec du redémarrage de Liquidsoap : "
-            + (exc.stderr.strip() if exc.stderr else str(exc))
-            + ". Vérifiez que /etc/sudoers.d/radio-wra est bien installé (voir install/radio-sudoers).",
-            "error",
-        )
-    except subprocess.TimeoutExpired:
-        flash("Le redémarrage de Liquidsoap prend plus de temps que prévu, vérifiez manuellement.", "error")
-    except FileNotFoundError:
-        flash("Commande 'sudo' introuvable sur ce serveur.", "error")
+    else:
+        flash("Échec du redémarrage de Liquidsoap : " + error, "error")
     return redirect(url_for("settings.reglages"))
 
 

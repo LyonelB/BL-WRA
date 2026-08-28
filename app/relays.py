@@ -5,8 +5,11 @@ relayer le flux (en plus de l'Icecast local defini dans radio.liq).
 Geree depuis /reglages. A chaque changement, on reecrit un petit fichier
 JSON (RELAYS_JSON_PATH) que radio.liq lit AU DEMARRAGE pour creer un
 output.icecast supplementaire par serveur actif. Pas de rechargement a
-chaud : apres un changement, Liquidsoap doit etre redemarre pour que ca
-prenne effet (choix assume - voir README).
+chaud : la liste des relais n'est lue par Liquidsoap qu'a son demarrage,
+donc chaque mutation (ajout/modification/suppression/activation)
+redemarre automatiquement liquidsoap-radio ci-dessous pour l'appliquer
+immediatement - pas besoin de lancer la commande a la main (voir
+liquidsoap_client.restart_liquidsoap_service).
 """
 
 import json
@@ -15,6 +18,7 @@ import os
 from flask import Blueprint, current_app, flash, redirect, render_template, request, url_for
 
 import database
+import liquidsoap_client
 from auth import login_required
 
 bp = Blueprint("relays", __name__)
@@ -43,6 +47,22 @@ def write_relays_json(app):
         current_app.logger.warning("Impossible d'ecrire %s : %s", path, exc)
 
 
+def _apply_relays_change(action_label):
+    """Reecrit relays.json (voir write_relays_json) puis redemarre
+    liquidsoap-radio immediatement, et flash un message adapte au resultat.
+    "action_label" est au participe passe accorde au masculin singulier
+    (ex. "Serveur ajouté", "Serveur modifié"...) : prefixe le message."""
+    write_relays_json(current_app._get_current_object())
+    ok, error = liquidsoap_client.restart_liquidsoap_service()
+    if ok:
+        flash(f"{action_label}. Liquidsoap redémarré.", "success")
+    else:
+        flash(
+            f"{action_label}, mais le redémarrage automatique de Liquidsoap a échoué : {error}",
+            "error",
+        )
+
+
 @bp.route("/reglages/relais/ajouter", methods=["POST"])
 @login_required
 def ajouter():
@@ -63,12 +83,7 @@ def ajouter():
         return redirect(url_for("settings.reglages"))
 
     database.add_relay(name, host, port, mount, user, password)
-    write_relays_json(current_app._get_current_object())
-    flash(
-        "Serveur ajouté. Redémarrez Liquidsoap pour appliquer : "
-        "sudo systemctl restart liquidsoap-radio",
-        "success",
-    )
+    _apply_relays_change("Serveur ajouté")
     return redirect(url_for("settings.reglages"))
 
 
@@ -101,12 +116,7 @@ def modifier(relay_id):
             return redirect(url_for("relays.modifier", relay_id=relay_id))
 
         database.update_relay(relay_id, name, host, port, mount, user, password or None)
-        write_relays_json(current_app._get_current_object())
-        flash(
-            "Serveur modifié. Redémarrez Liquidsoap pour appliquer : "
-            "sudo systemctl restart liquidsoap-radio",
-            "success",
-        )
+        _apply_relays_change("Serveur modifié")
         return redirect(url_for("settings.reglages"))
 
     return render_template("relay_edit.html", relay=relay)
@@ -116,12 +126,7 @@ def modifier(relay_id):
 @login_required
 def supprimer(relay_id):
     database.delete_relay(relay_id)
-    write_relays_json(current_app._get_current_object())
-    flash(
-        "Serveur supprimé. Redémarrez Liquidsoap pour appliquer : "
-        "sudo systemctl restart liquidsoap-radio",
-        "success",
-    )
+    _apply_relays_change("Serveur supprimé")
     return redirect(url_for("settings.reglages"))
 
 
@@ -131,9 +136,5 @@ def activer(relay_id):
     relay = database.get_relay(relay_id)
     if relay:
         database.set_relay_active(relay_id, not relay["active"])
-        write_relays_json(current_app._get_current_object())
-        flash(
-            "Redémarrez Liquidsoap pour appliquer : sudo systemctl restart liquidsoap-radio",
-            "success",
-        )
+        _apply_relays_change("Serveur activé" if not relay["active"] else "Serveur désactivé")
     return redirect(url_for("settings.reglages"))

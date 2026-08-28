@@ -10,6 +10,7 @@ n'a pas besoin d'un vrai client telnet, quelques requetes HTTP suffisent.
 import json
 import logging
 import os
+import subprocess
 
 import requests
 
@@ -242,6 +243,36 @@ def write_track_titles_file(path, tracks, dir_by_category):
     with open(tmp_path, "w", encoding="utf-8") as f:
         json.dump(payload, f)
     os.replace(tmp_path, path)
+
+
+def restart_liquidsoap_service(timeout=15):
+    """Redemarre le service liquidsoap-radio via sudo systemctl (necessite
+    le droit sudo dedie installe pour l'utilisateur "radio", voir
+    install/radio-sudoers). Utilise a la fois par le bouton "Redemarrer
+    Liquidsoap maintenant" (Reglages) et, automatiquement, par toute
+    mutation de la diffusion externe (Reglages -> Diffusion externe :
+    ajout/modification/suppression/activation d'un relais) qui necessite un
+    redemarrage pour prendre effet - evite d'avoir a lancer la commande a la
+    main a chaque fois.
+
+    Renvoie (True, None) en cas de succes, ou (False, message_erreur) sinon
+    - a l'appelant de decider comment afficher l'erreur (flash, log...).
+    """
+    try:
+        subprocess.run(
+            ["sudo", "/usr/bin/systemctl", "restart", "liquidsoap-radio"],
+            check=True, capture_output=True, timeout=timeout, text=True,
+        )
+        return True, None
+    except subprocess.CalledProcessError as exc:
+        return False, (
+            (exc.stderr.strip() if exc.stderr else str(exc))
+            + ". Vérifiez que /etc/sudoers.d/radio-wra est bien installé (voir install/radio-sudoers)."
+        )
+    except subprocess.TimeoutExpired:
+        return False, "Le redémarrage de Liquidsoap prend plus de temps que prévu, vérifiez manuellement."
+    except FileNotFoundError:
+        return False, "Commande 'sudo' introuvable sur ce serveur."
 
 
 def sync_audio_fx(base_url, settings):
