@@ -86,6 +86,22 @@ musique_rotation_path = "/opt/radio/liquidsoap/musique_rotation.json"
 # creation/modification/suppression/activation d'une playlist.
 playlists_path = "/opt/radio/liquidsoap/playlists.json"
 
+# Fichier RELU A CHAQUE selection d'une musique/jingle/pub (comme
+# playlists_path ci-dessus) : titre/artiste "officiels", corriges depuis la
+# Bibliotheque (voir Modifier -> titre/artiste cote appli web), pour chaque
+# fichier de musiques_dir/jingles_dir/pubs_dir. Sans ca, Liquidsoap lit les
+# tags ID3 bruts du fichier (souvent absents/errones) ou, a defaut, le nom de
+# fichier lui-meme (illisible - underscores, infos de partage...) pour les
+# metadonnees ICY effectivement envoyees a Icecast, donc affichees par tout
+# lecteur externe (ex. le lecteur PHP public sur graffitiradio.fr) - constate
+# le 28/08 : "Ptr&Stvn - Peter et Steven - Georges Part 1_" au lieu du titre
+# corrige. Voir annotated_uri plus bas, utilisee par musique_next_request et
+# handle_push pour annoter chaque requete avec le titre/artiste corriges
+# AVANT resolution, plutot que de laisser Liquidsoap deviner. Ecrit par
+# l'appli Flask a chaque ajout/modification/suppression depuis la
+# Bibliotheque/Jingles/Pubs (voir liquidsoap_client.write_track_titles_file).
+track_titles_path = "/opt/radio/liquidsoap/track_titles.json"
+
 # ---------------------------------------------------------------------------
 # Securite : le serveur telnet et l'API harbor ne doivent ecouter qu'en local
 # ---------------------------------------------------------------------------
@@ -247,6 +263,56 @@ def library_files(data) =
   if list.length(filtered) == 0 then all else filtered end
 end
 
+# ---------------------------------------------------------------------------
+# Titre/artiste corriges (voir track_titles_path plus haut) : chaque requete
+# (musique via musique_next_request, jingle/pub via handle_push) est annotee
+# avec le titre/artiste "officiels" quand ils sont connus, plutot que de
+# laisser Liquidsoap lire les tags ID3 bruts du fichier ou, a defaut, son nom.
+# ---------------------------------------------------------------------------
+
+def load_track_titles() =
+  default = []
+  if file.exists(track_titles_path) then
+    try
+      let json.parse (parsed : {tracks: [{path: string, title: string, artist: string}]}) =
+        file.contents(track_titles_path)
+      parsed.tracks
+    catch _ : [error.json] do
+      log(label="track_titles", "track_titles.json invalide, titres bruts utilises")
+      default
+    end
+  else
+    default
+  end
+end
+
+# Cherche "path" dans "entries" (voir load_track_titles) et renvoie
+# l'entree correspondante ({path, title, artist}), ou null() si absente.
+def find_track_title(path, entries) =
+  matches = list.filter(fun (e) -> e.path == path, entries)
+  if list.length(matches) == 0 then null() else list.nth(matches, 0) end
+end
+
+# Construit l'URI a passer a request.create pour "path" : si un titre/
+# artiste corrige existe pour ce fichier (voir find_track_title), l'annote
+# explicitement ("annotate:title=...,artist=...:path", verifie
+# empiriquement que les champs se separent par une VIRGULE, pas par ":")
+# pour que Liquidsoap l'utilise a la place des tags ID3/nom de fichier bruts
+# - sinon renvoie "path" tel quel (comportement inchange, ex. fichier tout
+# juste ajoute et pas encore present dans track_titles.json).
+# string.quote() echappe correctement guillemets/apostrophes/virgules
+# eventuels dans le titre/artiste.
+def annotated_uri(path) =
+  entries = load_track_titles()
+  found = find_track_title(path, entries)
+  null.default(
+    null.map(fun (e) ->
+        "annotate:title=#{string.quote(e.title)},artist=#{string.quote(e.artist)}:#{path}",
+      found),
+    fun () -> path
+  )
+end
+
 def musique_next_request() =
   no_repeat_seconds = float_of_int(load_musique_no_repeat_minutes()) * 60.
   now = time()
@@ -285,7 +351,7 @@ def musique_next_request() =
     # et declencher le repli "bibliotheque trop petite" prematurement -
     # cause identifiee de repetitions rapprochees constatees en prod malgre
     # no_repeat_minutes=120.
-    request.create(picked)
+    request.create(annotated_uri(picked))
   end
 end
 
@@ -459,7 +525,18 @@ def handle_push(hreq, hresp) =
     hresp.status_code(400)
     hresp.json({error = "parametre 'file' manquant"})
   else
-    rid = request.create("annotate:category=\"#{cat}\":#{file}")
+    # Titre/artiste corriges (voir track_titles_path/annotated_uri plus
+    # haut) : un jingle/pub pousse ici doit lui aussi afficher son titre
+    # corrige dans les metadonnees ICY, pas seulement les musiques de la
+    # rotation normale.
+    found = find_track_title(file, load_track_titles())
+    uri = null.default(
+      null.map(fun (e) ->
+          "annotate:category=#{string.quote(cat)},title=#{string.quote(e.title)},artist=#{string.quote(e.artist)}:#{file}",
+        found),
+      fun () -> "annotate:category=#{string.quote(cat)}:#{file}"
+    )
+    rid = request.create(uri)
     ignore(prio.push(rid))
     hresp.json({status = "ok", file = file, type = cat})
   end

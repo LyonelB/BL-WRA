@@ -103,16 +103,44 @@ def skip():
     return redirect(url_for("dashboard.index"))
 
 
+def _recent_musique_payload(limit=10):
+    rows = database.recent_plays(limit=limit, category="musique")
+    return [
+        {
+            "title": r["title"] or r["filename"],
+            "artist": r["artist"] or "",
+            "played_at": r["played_at"],
+        }
+        for r in rows
+    ]
+
+
 @bp.route("/public")
 def public():
     """Page en lecture seule (pas de login), dans l'esprit du mode /public
-    de bl-fmo : ce qui joue en ce moment, sans acces a l'administration."""
+    de bl-fmo : lecteur (lecture/volume), titre en cours et historique des
+    10 derniers titres, sans acces a l'administration."""
     now_playing = rotation.now_playing_snapshot()
     station_name = database.get_setting("station_name", "Ma Webradio")
     stream_url = database.get_setting("stream_url", "")
+    recent = _recent_musique_payload(limit=10)
     return render_template(
-        "public.html", now_playing=now_playing, station_name=station_name, stream_url=stream_url
+        "public.html",
+        now_playing=now_playing,
+        station_name=station_name,
+        stream_url=stream_url,
+        recent=recent,
     )
+
+
+@bp.route("/api/public/recent")
+def public_recent():
+    """Historique des 10 derniers titres (musique uniquement), pour la mise
+    a jour en direct de la page /public a chaque changement de titre (voir
+    public.html : re-appele a chaque evenement du flux SSE, qui ne se
+    declenche que sur un vrai changement de titre a l'antenne - pas sur les
+    keep-alive)."""
+    return jsonify({"recent": _recent_musique_payload(limit=10)})
 
 
 @bp.route("/api/public/now-playing/stream")

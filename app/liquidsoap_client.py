@@ -202,6 +202,48 @@ def write_playlists_file(path, playlists_with_tracks, musiques_dir):
     os.replace(tmp_path, path)
 
 
+def write_track_titles_file(path, tracks, dir_by_category):
+    """Ecrit le titre/artiste "officiel" (corrige depuis la Bibliotheque,
+    voir database.update_track_metadata) de chaque musique/jingle/pub dans
+    le fichier JSON RELU EN CONTINU par radio.liq, pour que les
+    metadonnees ICY effectivement envoyees dans le flux Icecast (et donc
+    lues par tout lecteur externe, ex. le lecteur PHP public) reprennent ce
+    titre corrige plutot que les tags ID3 bruts du fichier ou, a defaut, le
+    nom de fichier (souvent illisible - underscores, tags manquants...).
+
+    Voir annotated_uri dans radio.liq : cherche le chemin absolu du fichier
+    dans cette liste et, si trouve, annote la requete Liquidsoap
+    (request.create("annotate:title=...,artist=...:chemin")) AVANT
+    resolution, plutot que de laisser Liquidsoap deviner depuis les tags ID3
+    du fichier ou son nom. Utilise a la fois par musique_next_request (pour
+    les musiques de la rotation normale) et handle_push (pour les jingles/
+    pubs pousses via /push). Aucun changement si le fichier n'est pas
+    trouve (metadonnees d'origine conservees).
+
+    "tracks" : lignes de la table tracks (musique + jingle + pub,
+    peu importe actif/inactif - c'est juste une table de correspondance).
+    "dir_by_category" : {"musique": MUSIQUES_DIR, "jingle": JINGLES_DIR,
+    "pub": PUBS_DIR} pour reconstruire le chemin absolu de chaque fichier,
+    exactement comme le fait radio.liq lui-meme (m["filename"]).
+    """
+    payload = {"tracks": []}
+    for t in tracks:
+        base_dir = dir_by_category.get(t["category"])
+        if not base_dir:
+            continue
+        payload["tracks"].append(
+            {
+                "path": os.path.join(base_dir, t["filename"]),
+                "title": t["title"] or t["filename"],
+                "artist": t["artist"] or "",
+            }
+        )
+    tmp_path = f"{path}.tmp"
+    with open(tmp_path, "w", encoding="utf-8") as f:
+        json.dump(payload, f)
+    os.replace(tmp_path, path)
+
+
 def sync_audio_fx(base_url, settings):
     """Repousse vers Liquidsoap, a chaud, les traitements audio qui le
     permettent (normalize/blank_removal). Best-effort : renvoie la liste des

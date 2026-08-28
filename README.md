@@ -70,7 +70,8 @@ nécessaire pour l'adapter à votre radio.
   musiques/jingles/pubs, règles de rotation ("un jingle toutes les N
   musiques", des pubs programmées à heure fixe via des "créneaux"), tableau
   de bord "à l'antenne" en direct, bouton "titre suivant", page publique en
-  lecture seule (`/public`).
+  lecture seule (`/public` : lecteur avec lecture/volume, titre en cours,
+  historique des 10 derniers titres diffusés).
 - Toute la logique de rotation vit côté Python (`app/rotation.py`) : on peut
   changer les réglages depuis l'interface sans jamais toucher au script
   Liquidsoap ni redémarrer la diffusion.
@@ -155,6 +156,13 @@ Voir `install/install.sh` (Debian / Raspberry Pi OS). En résumé :
    dans "Mon compte".
 6. (Optionnel) configurez `install/nginx-radio.conf` pour exposer
    l'interface sur le port 80/443 plutôt que directement sur le port 5000.
+7. (Optionnel) pour rendre la page publique `/public` (lecteur, sans
+   l'administration) accessible depuis internet via une adresse type
+   `VOTRE-SOUS-DOMAINE.duckdns.org`, voir `install/nginx-public-player.conf`
+   et `install/duckdns-update.sh` - instructions détaillées dans ces
+   fichiers. Redirection depuis un chemin de votre propre nom de domaine
+   (ex. `graffitiradio.fr/lrsy`) : à configurer côté hébergeur de ce
+   domaine, en pointant vers l'adresse DuckDNS ci-dessus.
 
 ### En développement (sans systemd)
 

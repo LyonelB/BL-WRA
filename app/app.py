@@ -64,6 +64,15 @@ def create_app():
                 database.list_playlists(),
                 app.config["MUSIQUES_DIR"],
             )
+            liquidsoap_client.write_track_titles_file(
+                app.config["TRACK_TITLES_JSON_PATH"],
+                database.list_tracks("musique") + database.list_tracks("jingle") + database.list_tracks("pub"),
+                {
+                    "musique": app.config["MUSIQUES_DIR"],
+                    "jingle": app.config["JINGLES_DIR"],
+                    "pub": app.config["PUBS_DIR"],
+                },
+            )
             liquidsoap_client.sync_audio_fx(app.config["LIQUIDSOAP_API_URL"], current_settings)
         except OSError:
             pass

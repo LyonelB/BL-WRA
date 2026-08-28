@@ -386,8 +386,17 @@ def log_play(category, filename, title=None, artist=None):
     db.commit()
 
 
-def recent_plays(limit=25):
+def recent_plays(limit=25, category=None):
+    """Dernieres diffusions, toutes categories confondues par defaut (tableau
+    de bord admin), ou filtrees sur une categorie (ex. "musique" pour
+    l'historique de la page publique /public - on n'y montre que des
+    "titres" au sens ou l'entend l'auditeur, pas les jingles/pubs)."""
     db = get_db()
+    if category:
+        return db.execute(
+            "SELECT * FROM play_log WHERE category = ? ORDER BY played_at DESC LIMIT ?",
+            (category, limit),
+        ).fetchall()
     return db.execute(
         "SELECT * FROM play_log ORDER BY played_at DESC LIMIT ?", (limit,)
     ).fetchall()

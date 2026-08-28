@@ -64,6 +64,23 @@ def _dir_for(category):
     return current_app.config[CATEGORY_CONFIG[category]["dir_key"]]
 
 
+def _sync_track_titles():
+    """Reecrit track_titles.json (titre/artiste corriges, voir
+    liquidsoap_client.write_track_titles_file) - a appeler apres tout ajout/
+    modification/suppression de musique/jingle/pub, pour que les
+    metadonnees ICY envoyees a Icecast restent a jour immediatement, sans
+    redemarrer Liquidsoap."""
+    liquidsoap_client.write_track_titles_file(
+        current_app.config["TRACK_TITLES_JSON_PATH"],
+        database.list_tracks("musique") + database.list_tracks("jingle") + database.list_tracks("pub"),
+        {
+            "musique": current_app.config["MUSIQUES_DIR"],
+            "jingle": current_app.config["JINGLES_DIR"],
+            "pub": current_app.config["PUBS_DIR"],
+        },
+    )
+
+
 def _play_now_enabled(category):
     """Le bouton "Jouer maintenant" peut etre desactive independamment sur
     Jingles et Pubs (reglage jingle_play_now_enabled / pub_play_now_enabled)
@@ -153,6 +170,7 @@ def _upload_view(category):
 
     if ok:
         flash(f"{ok} fichier(s) ajouté(s) à {cfg['label'].lower()}.", "success")
+        _sync_track_titles()
     if ko:
         flash(f"{ko} fichier(s) ignoré(s) (format non supporté).", "error")
 
@@ -170,6 +188,7 @@ def _delete_view(category, track_id):
         except OSError as exc:
             current_app.logger.warning("Suppression fichier impossible (%s): %s", path, exc)
         database.delete_track(track_id)
+        _sync_track_titles()
         flash("Élément supprimé.", "success")
     return redirect(url_for(f"library.{cfg['url']}"))
 
@@ -193,6 +212,7 @@ def _edit_view(category, track_id):
         title = request.form.get("title", "").strip()
         artist = request.form.get("artist", "").strip()
         database.update_track_metadata(track_id, title, artist)
+        _sync_track_titles()
         if cfg.get("editable_active"):
             database.set_track_active(track_id, bool(request.form.get("active")))
         if category == "musique":

@@ -2,7 +2,7 @@
 {% block title %}En direct{% endblock %}
 {% block content %}
 <div class="auth-screen">
-  <div class="auth-card public-card">
+  <div class="auth-card public-card" style="max-width: 420px;">
     <div class="brand brand-center">
       <span class="brand-dot"></span>
       <span>{{ station_name }}</span>
@@ -11,13 +11,39 @@
     <h1 id="public-title">{{ now_playing.title or "—" }}</h1>
     <p id="public-artist" class="muted">{{ now_playing.artist or "" }}</p>
     <span id="public-category" class="badge badge-{{ now_playing.category }}">{{ now_playing.category }}</span>
+
     {% if stream_url %}
-    <audio id="radio-player" controls preload="none" class="player"></audio>
+    <audio id="radio-player" preload="none"></audio>
+    <div class="player-controls">
+      <button id="player-toggle" type="button" class="player-toggle-btn" aria-label="Lecture">
+        <svg id="icon-play" viewBox="0 0 24 24" width="26" height="26" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+        <svg id="icon-pause" viewBox="0 0 24 24" width="26" height="26" fill="currentColor" style="display: none;"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>
+      </button>
+      <div class="volume-control">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" class="muted"><path d="M3 10v4h4l5 5V5L7 10H3zm13.5 2A4.5 4.5 0 0 0 14 7.97v8.05A4.5 4.5 0 0 0 16.5 12z"/></svg>
+        <input id="player-volume" type="range" min="0" max="100" value="100" aria-label="Volume">
+      </div>
+      <span id="player-status" class="hint" style="margin: 0;">Appuyez sur lecture pour écouter</span>
+    </div>
     <p class="hint">
       <a id="external-player-link" href="{{ stream_url }}" target="_blank" rel="noopener">Ouvrir le flux directement</a>
       (VLC, lecteur audio externe...) en cas de souci de lecture ici.
     </p>
     {% endif %}
+
+    <div class="public-history">
+      <p class="eyebrow" style="margin-top: 22px;">Derniers titres diffusés</p>
+      <ol id="public-history-list" class="history-list">
+        {% for p in recent %}
+        <li>
+          <span class="history-time">{{ p.played_at[11:16] }}</span>
+          <span class="history-track">{{ p.title }}{% if p.artist %} <span class="muted">— {{ p.artist }}</span>{% endif %}</span>
+        </li>
+        {% else %}
+        <li class="muted">Rien diffusé pour l'instant.</li>
+        {% endfor %}
+      </ol>
+    </div>
   </div>
 </div>
 <script>
@@ -25,13 +51,83 @@
   (function () {
     var streamUrl = {{ stream_url | tojson }};
     var player = document.getElementById("radio-player");
-    // Cache-bust a chaque chargement de page : evite qu'un navigateur
-    // reutilise/mette en cache une reponse pour le flux et s'arrete au bout
-    // d'un moment au lieu de continuer a lire en direct.
-    var sep = streamUrl.indexOf("?") === -1 ? "?" : "&";
-    player.src = streamUrl + sep + "nocache=" + Date.now();
+    var toggleBtn = document.getElementById("player-toggle");
+    var iconPlay = document.getElementById("icon-play");
+    var iconPause = document.getElementById("icon-pause");
+    var statusEl = document.getElementById("player-status");
+    var volumeSlider = document.getElementById("player-volume");
+
+    // Volume : on se souvient du dernier reglage choisi par cet auditeur
+    // (localStorage, propre a ce navigateur) plutot que de repartir a fond
+    // a chaque visite.
+    var savedVolume = null;
+    try {
+      savedVolume = window.localStorage.getItem("bl-wra-volume");
+    } catch (e) { /* stockage indisponible (navigation privee...) : tant pis */ }
+    var initialVolume = savedVolume !== null ? parseInt(savedVolume, 10) : 100;
+    if (isNaN(initialVolume)) { initialVolume = 100; }
+    volumeSlider.value = initialVolume;
+    player.volume = initialVolume / 100;
+
+    volumeSlider.addEventListener("input", function () {
+      player.volume = volumeSlider.value / 100;
+      try {
+        window.localStorage.setItem("bl-wra-volume", volumeSlider.value);
+      } catch (e) { /* ignore */ }
+    });
+
+    function setPlayingUI(isPlaying) {
+      iconPlay.style.display = isPlaying ? "none" : "";
+      iconPause.style.display = isPlaying ? "" : "none";
+      toggleBtn.setAttribute("aria-label", isPlaying ? "Pause" : "Lecture");
+      statusEl.textContent = isPlaying ? "En direct" : "En pause";
+    }
+
+    toggleBtn.addEventListener("click", function () {
+      if (player.paused) {
+        if (!player.src) {
+          // Cache-bust au premier demarrage (et a chaque redemarrage) : evite
+          // qu'un navigateur reutilise/mette en cache une reponse pour le
+          // flux et s'arrete au bout d'un moment au lieu de continuer a lire
+          // en direct.
+          var sep = streamUrl.indexOf("?") === -1 ? "?" : "&";
+          player.src = streamUrl + sep + "nocache=" + Date.now();
+        }
+        player.play().catch(function () {
+          statusEl.textContent = "Lecture impossible - réessayez.";
+        });
+      } else {
+        player.pause();
+      }
+    });
+    player.addEventListener("playing", function () { setPlayingUI(true); });
+    player.addEventListener("pause", function () { setPlayingUI(false); });
+    player.addEventListener("waiting", function () { statusEl.textContent = "Chargement..."; });
+    player.addEventListener("error", function () { statusEl.textContent = "Flux indisponible pour l'instant."; });
   })();
   {% endif %}
+
+  function renderHistory(items) {
+    var list = document.getElementById("public-history-list");
+    if (!list) return;
+    if (!items || items.length === 0) {
+      list.innerHTML = '<li class="muted">Rien diffusé pour l\'instant.</li>';
+      return;
+    }
+    list.innerHTML = items.map(function (p) {
+      var time = (p.played_at || "").slice(11, 16);
+      var artist = p.artist ? ' <span class="muted">— ' + escapeHtml(p.artist) + "</span>" : "";
+      return "<li><span class=\"history-time\">" + escapeHtml(time) + "</span>" +
+        "<span class=\"history-track\">" + escapeHtml(p.title) + artist + "</span></li>";
+    }).join("");
+  }
+
+  function escapeHtml(s) {
+    var div = document.createElement("div");
+    div.textContent = s || "";
+    return div.innerHTML;
+  }
+
   const evtSource = new EventSource("/api/public/now-playing/stream");
   evtSource.onmessage = (event) => {
     const data = JSON.parse(event.data);
@@ -40,6 +136,17 @@
     const badge = document.getElementById("public-category");
     badge.textContent = data.category;
     badge.className = "badge badge-" + data.category;
+
+    // Un vrai changement de titre a l'antenne (le seul cas ou ce flux emet
+    // un evenement "message" - les keep-alive sont des commentaires SSE
+    // invisibles pour onmessage) : on rafraichit l'historique cote serveur
+    // plutot que de deviner cote client, pour rester fidele a play_log
+    // meme si un jingle/pub est passe entre-temps (l'historique ne montre
+    // que la categorie "musique").
+    fetch("/api/public/recent")
+      .then((r) => r.json())
+      .then((d) => renderHistory(d.recent))
+      .catch(() => {});
   };
 </script>
 {% endblock %}

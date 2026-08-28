@@ -65,6 +65,18 @@ PLAYLISTS_JSON_PATH = os.environ.get(
     "RADIO_PLAYLISTS_JSON", "/opt/radio/liquidsoap/playlists.json"
 )
 
+# Fichier RELU EN CONTINU par radio.liq (comme playlists.json ci-dessus) :
+# titre/artiste corriges depuis la Bibliotheque pour chaque musique/jingle/
+# pub, afin que les metadonnees ICY reellement envoyees a Icecast reprennent
+# ce titre plutot que les tags ID3 bruts ou le nom de fichier (voir
+# annotated_uri dans radio.liq, et liquidsoap_client.
+# write_track_titles_file). Reecrit a chaque ajout/modification/suppression
+# depuis la Bibliotheque/Jingles/Pubs - effet immediat, sans redemarrer
+# Liquidsoap.
+TRACK_TITLES_JSON_PATH = os.environ.get(
+    "RADIO_TRACK_TITLES_JSON", "/opt/radio/liquidsoap/track_titles.json"
+)
+
 # Cle de session Flask - a definir via variable d'environnement en prod
 SECRET_KEY = os.environ.get("RADIO_SECRET_KEY", "change-moi-en-production")
 
