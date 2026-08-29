@@ -1,5 +1,7 @@
 """
-Planification des pubs (page Pubs -> Planification, 29/08).
+Planification des pubs (section "Planification" de la page Pubs, 29/08 -
+fusionnee sur la meme page que Bibliotheque/Creneaux le 29/08 egalement,
+a la demande de l'utilisateur, plutot qu'une page separee).
 
 Troisieme brique du systeme de pubs, separee de :
 - la Bibliotheque (page Pubs) : ou l'on stocke les fichiers pubs ;
@@ -17,6 +19,12 @@ pour le declenchement reel, base sur database.get_due_slot_tracks.
 Contrairement aux Playlists, rien a re-ecrire cote Liquidsoap : le
 declenchement des pubs se fait entierement cote Python (webhook
 on_track -> rotation.py), pas de fichier JSON a resynchroniser ici.
+
+Pas de route "index" ici : la liste des planifications est affichee
+directement sur library.pubs (voir library.py/library.html), qui fournit
+lui-meme le contexte (campaigns/all_pubs/pub_slots) au template. Toutes
+les actions ci-dessous redirigent donc vers library.pubs plutot que vers
+une page dediee.
 """
 
 from datetime import date
@@ -66,17 +74,6 @@ def _parse_track_id():
         return None
 
 
-@bp.route("/pubs/planification")
-@login_required
-def index():
-    return render_template(
-        "pub_campaigns.html",
-        campaigns=database.list_pub_campaigns(),
-        all_pubs=database.list_tracks("pub"),
-        all_slots=database.list_pub_slots(),
-    )
-
-
 @bp.route("/pubs/planification/ajouter", methods=["POST"])
 @login_required
 def ajouter():
@@ -87,20 +84,20 @@ def ajouter():
 
     if not track_id:
         flash("Choisissez une pub.", "error")
-        return redirect(url_for("pub_campaigns.index"))
+        return redirect(url_for("library.pubs"))
     if not start_date or not end_date:
         flash("Dates invalides.", "error")
-        return redirect(url_for("pub_campaigns.index"))
+        return redirect(url_for("library.pubs"))
     if end_date < start_date:
         flash("La date de fin est avant la date de début.", "error")
-        return redirect(url_for("pub_campaigns.index"))
+        return redirect(url_for("library.pubs"))
     if not slot_ids:
         flash("Sélectionnez au moins un créneau.", "error")
-        return redirect(url_for("pub_campaigns.index"))
+        return redirect(url_for("library.pubs"))
 
     database.add_pub_campaign(track_id, start_date, end_date, slot_ids)
     flash("Planification créée.", "success")
-    return redirect(url_for("pub_campaigns.index"))
+    return redirect(url_for("library.pubs"))
 
 
 @bp.route("/pubs/planification/<int:campaign_id>/modifier", methods=["GET", "POST"])
@@ -109,7 +106,7 @@ def modifier(campaign_id):
     campaign = database.get_pub_campaign(campaign_id)
     if not campaign:
         flash("Planification introuvable.", "error")
-        return redirect(url_for("pub_campaigns.index"))
+        return redirect(url_for("library.pubs"))
 
     if request.method == "POST":
         track_id = _parse_track_id()
@@ -132,7 +129,7 @@ def modifier(campaign_id):
 
         database.update_pub_campaign(campaign_id, track_id, start_date, end_date, slot_ids)
         flash("Planification modifiée.", "success")
-        return redirect(url_for("pub_campaigns.index"))
+        return redirect(url_for("library.pubs"))
 
     all_pubs = database.list_tracks("pub")
     all_slots = database.list_pub_slots()
@@ -151,7 +148,7 @@ def modifier(campaign_id):
 def supprimer(campaign_id):
     database.delete_pub_campaign(campaign_id)
     flash("Planification supprimée.", "success")
-    return redirect(url_for("pub_campaigns.index"))
+    return redirect(url_for("library.pubs"))
 
 
 @bp.route("/pubs/planification/<int:campaign_id>/activer", methods=["POST"])
@@ -160,4 +157,4 @@ def activer(campaign_id):
     campaign = database.get_pub_campaign(campaign_id)
     if campaign:
         database.set_pub_campaign_active(campaign_id, not campaign["active"])
-    return redirect(url_for("pub_campaigns.index"))
+    return redirect(url_for("library.pubs"))

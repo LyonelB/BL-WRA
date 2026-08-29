@@ -30,7 +30,12 @@ def index():
     recent = database.recent_plays(limit=15)
     settings = database.get_all_settings()
     liquidsoap_ok = liquidsoap_client.ping(current_app.config["LIQUIDSOAP_API_URL"]) is not None
-    active_pub_slots = sum(1 for slot in database.list_pub_slots() if slot["active"])
+    # Depuis le 29/08, les creneaux n'ont plus de notion active/inactive
+    # (voir database.due_pub_slots) : la statistique utile ici n'est plus
+    # "combien de creneaux actifs" mais "combien de pubs seront reellement
+    # diffusees aujourd'hui" (planification active qui couvre la date du
+    # jour, voir database.list_scheduled_pub_track_ids).
+    pubs_planifiees_today = len(database.list_scheduled_pub_track_ids())
     return render_template(
         "dashboard.html",
         counts=counts,
@@ -38,7 +43,7 @@ def index():
         recent=recent,
         settings=settings,
         liquidsoap_ok=liquidsoap_ok,
-        active_pub_slots=active_pub_slots,
+        pubs_planifiees_today=pubs_planifiees_today,
     )
 
 

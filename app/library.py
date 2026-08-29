@@ -47,13 +47,13 @@ CATEGORY_CONFIG = {
     },
     "pub": {
         "dir_key": "PUBS_DIR", "url": "pubs", "label": "Pubs",
-        "hint": "Une pub \"planifiée\" a au moins une planification active (voir la page Planification) qui l'associe à un créneau et couvre la date du jour - c'est ce qui détermine si elle sera diffusée, pas une case actif/inactif à part.",
+        "hint": "Une pub \"planifiée\" a au moins une planification active (section Planification ci-dessous) qui l'associe à un créneau et couvre la date du jour - c'est ce qui détermine si elle sera diffusée, pas une case actif/inactif à part.",
         "show_jouer": True,
         # Pas de case "actif" sur la page de modification pour les pubs :
         # contrairement a musiques/jingles, le badge "Planifiee" est
         # calcule (au moins une planification active qui couvre la date du
-        # jour et un creneau actif, voir database.list_scheduled_pub_track_ids
-        # et pub_campaigns.py), pas un champ a cocher.
+        # jour, voir database.list_scheduled_pub_track_ids et
+        # pub_campaigns.py), pas un champ a cocher.
         # Pour retirer une pub de la diffusion : desactiver/supprimer ses
         # planifications, ou supprimer le fichier.
         "editable_active": False,
@@ -118,11 +118,16 @@ def _list_view(category):
         extra["jingle_every_n_titles"] = database.get_setting("jingle_every_n_titles", 4)
     elif category == "pub":
         # Depuis le 29/08, un creneau (pub_slots) est pur heure+jours et ne
-        # porte plus de pubs : plus besoin de all_pubs ici, le picker de
-        # pubs par creneau a ete retire (voir page Planification, blueprint
-        # pub_campaigns, pour associer une pub a des creneaux).
+        # porte plus de pubs directement - c'est une planification
+        # (pub_campaigns) qui associe une pub a des creneaux pour une
+        # periode donnee. Les trois sections (bibliotheque/creneaux/
+        # planification) sont regroupees sur cette meme page (library.html)
+        # a la demande de l'utilisateur, plutot que sur des pages separees.
         extra["pub_slots"] = database.list_pub_slots()
         extra["scheduled_pub_ids"] = database.list_scheduled_pub_track_ids()
+        extra["pub_campaigns"] = database.list_pub_campaigns()
+        # Pour le formulaire "Ajouter une planification" (choix de la pub).
+        extra["all_pubs"] = database.list_tracks("pub")
 
     return render_template(
         "library.html",

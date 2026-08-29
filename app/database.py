@@ -566,23 +566,26 @@ def delete_pub_slot(slot_id):
     db.commit()
 
 
-def set_pub_slot_active(slot_id, active):
-    db = get_db()
-    db.execute("UPDATE pub_slots SET active = ? WHERE id = ?", (1 if active else 0, slot_id))
-    db.commit()
-
-
 def due_pub_slots(now_hm, today, weekday):
-    """Creneaux actifs dont l'heure est deja passee (aujourd'hui), qui
-    incluent le jour de la semaine courant (weekday : "1"=lundi ...
-    "7"=dimanche, voir datetime.isoweekday()) parmi leurs jours de
-    diffusion, et qui ne se sont pas encore declenches aujourd'hui.
+    """Creneaux dont l'heure est deja passee (aujourd'hui), qui incluent le
+    jour de la semaine courant (weekday : "1"=lundi ... "7"=dimanche, voir
+    datetime.isoweekday()) parmi leurs jours de diffusion, et qui ne se sont
+    pas encore declenches aujourd'hui.
+
+    Un creneau n'a plus de notion active/inactive propre (retiree le 29/08 :
+    elle faisait doublon avec l'activation d'une planification et pouvait
+    bloquer silencieusement une planification par ailleurs active - toute la
+    gestion "actif/inactif" se fait desormais uniquement au niveau de la
+    planification, voir pub_campaigns.set_pub_campaign_active). La colonne
+    "active" reste en base (toujours a 1) pour eviter une migration, mais
+    n'est plus lue ici.
+
     Le tour ',' || days || ',' LIKE '%,' || ? || ',%' evite tout faux
     positif de sous-chaine (non necessaire ici vu que "days" ne contient
     que des chiffres 1-7 uniques, mais plus sur si le format evolue)."""
     db = get_db()
     return db.execute(
-        "SELECT * FROM pub_slots WHERE active = 1 AND time <= ? AND last_fired_date != ? "
+        "SELECT * FROM pub_slots WHERE time <= ? AND last_fired_date != ? "
         "AND (',' || days || ',') LIKE ('%,' || ? || ',%') "
         "ORDER BY time",
         (now_hm, today, weekday),
@@ -705,18 +708,17 @@ def get_due_slot_tracks(slot_id, today):
 
 def list_scheduled_pub_track_ids():
     """Ensemble des id de pubs actuellement "planifiees" : assignees a au
-    moins une planification active dont la periode couvre la date du jour
-    ET qui inclut au moins un creneau lui-meme actif - utilise pour le
-    badge "Planifiee" en lecture seule de la page Pubs (library.html).
-    Reflete si la pub sera reellement diffusee aujourd'hui, pas seulement
-    si une planification existe quelque part dans le temps."""
+    moins une planification active dont la periode couvre la date du jour -
+    utilise pour le badge "Planifiee" en lecture seule de la page Pubs
+    (library.html) et pour le compteur du tableau de bord. Reflete si la
+    pub sera reellement diffusee aujourd'hui, pas seulement si une
+    planification existe quelque part dans le temps."""
     db = get_db()
     today = datetime.now().strftime("%Y-%m-%d")
     rows = db.execute(
         "SELECT DISTINCT c.track_id FROM pub_campaigns c "
         "JOIN pub_campaign_slots pcs ON pcs.campaign_id = c.id "
-        "JOIN pub_slots s ON s.id = pcs.slot_id "
-        "WHERE c.active = 1 AND s.active = 1 AND c.start_date <= ? AND c.end_date >= ?",
+        "WHERE c.active = 1 AND c.start_date <= ? AND c.end_date >= ?",
         (today, today),
     ).fetchall()
     return {r["track_id"] for r in rows}

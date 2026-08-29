@@ -77,12 +77,3 @@ def supprimer(slot_id):
     database.delete_pub_slot(slot_id)
     flash("Créneau supprimé.", "success")
     return redirect(url_for("library.pubs"))
-
-
-@bp.route("/pubs/creneaux/<int:slot_id>/activer", methods=["POST"])
-@login_required
-def activer(slot_id):
-    slot = database.get_pub_slot(slot_id)
-    if slot:
-        database.set_pub_slot_active(slot_id, not slot["active"])
-    return redirect(url_for("library.pubs"))

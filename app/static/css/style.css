@@ -68,6 +68,12 @@ a { color: var(--accent); text-decoration: none; }
 
 .content {
   flex: 1;
+  /* Sans min-width: 0, un enfant flex refuse par defaut de retrecir sous
+     la largeur intrinseque de son contenu (ex. une ligne de tableau
+     longue, comme sur Pubs -> Planification) : la page entiere s'elargit
+     et la ligne se retrouve coupee/hors-champ au lieu de passer a la
+     ligne. Voir aussi .table-wrap ci-dessous pour les tableaux eux-memes. */
+  min-width: 0;
   padding: 28px 32px 60px;
   max-width: 980px;
 }
@@ -195,6 +201,12 @@ code {
 
 /* --- Tables ------------------------------------------------------- */
 
+/* Filet de securite si un tableau reste malgre tout plus large que sa
+   carte (ex. beaucoup de creneaux listes sur une meme ligne de
+   planification) : on scrolle horizontalement DANS le tableau plutot que
+   de laisser la ligne deborder et se faire couper par le reste de la
+   mise en page. */
+.table-wrap { overflow-x: auto; }
 .table { width: 100%; border-collapse: collapse; margin-top: 12px; }
 .table th, .table td { text-align: left; padding: 9px 8px; border-bottom: 1px solid var(--border); font-size: 0.92rem; }
 .table th { color: var(--text-muted); font-weight: 600; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.03em; }
