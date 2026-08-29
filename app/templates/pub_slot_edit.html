@@ -7,7 +7,7 @@
 </div>
 
 <section class="card" style="max-width: 420px;">
-  <form method="post" class="settings-form">
+  <form method="post" action="{{ url_for('pub_slots.modifier', slot_id=slot.id) }}" class="settings-form">
     <label>Heure
       <input type="time" name="time" value="{{ slot.time }}" required>
     </label>

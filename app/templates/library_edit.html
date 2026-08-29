@@ -13,7 +13,7 @@
     <audio controls preload="none" class="player" src="{{ url_for('library.media_file', category=category, filename=track.filename) }}"></audio>
   </label>
 
-  <form method="post" class="settings-form">
+  <form method="post" action="{{ url_for('library.' ~ cfg.url ~ '_modifier', track_id=track.id) }}" class="settings-form">
     <label>Titre
       <input type="text" name="title" value="{{ track.title or '' }}">
     </label>

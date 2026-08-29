@@ -7,7 +7,7 @@
 </div>
 
 <section class="card">
-  <form method="post" class="settings-form settings-form-full">
+  <form method="post" action="{{ url_for('playlists.modifier', playlist_id=playlist.id) }}" class="settings-form settings-form-full">
     <label>Nom
       <input type="text" name="name" value="{{ playlist.name }}" required>
     </label>

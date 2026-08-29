@@ -7,7 +7,7 @@
 </div>
 
 <section class="card">
-  <form method="post" class="settings-form settings-form-full">
+  <form method="post" action="{{ url_for('pub_campaigns.modifier', campaign_id=campaign.id) }}" class="settings-form settings-form-full">
     <label>Pub
       <select name="track_id" required>
         {% for t in all_pubs %}
