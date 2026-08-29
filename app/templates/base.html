@@ -30,5 +30,79 @@
       {% block content %}{% endblock %}
     </main>
   </div>
+
+  <dialog id="modal-editor" class="modal-editor">
+    <button type="button" class="modal-close" onclick="closeEditModal()" aria-label="Fermer">&times;</button>
+    <div id="modal-editor-body"></div>
+  </dialog>
+
+  <script>
+    // Pop-up de modification (page Modifier -> Bibliotheque/Creneaux/
+    // Planification/Playlists/Serveurs externes) : au lieu de naviguer vers
+    // la page d'edition (et devoir faire "precedent" pour revenir), on la
+    // charge en arriere-plan et on l'affiche dans une <dialog> avec une
+    // croix pour la fermer. Chaque vue de modification cote Flask sait
+    // rendre soit la page complete (acces direct/JS desactive), soit juste
+    // le fragment de contenu (parametre ?modal=1, voir _modal_base.html) -
+    // c'est ce fragment qui est injecte ici.
+    function openEditModal(url) {
+      var dialog = document.getElementById('modal-editor');
+      var body = document.getElementById('modal-editor-body');
+      var sep = url.indexOf('?') === -1 ? '?' : '&';
+      fetch(url + sep + 'modal=1', { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+        .then(function (resp) {
+          // Si la vue a redirige (ex. element supprime entre-temps), le
+          // fragment attendu n'existe plus : on navigue normalement plutot
+          // que d'injecter une page complete dans le pop-up.
+          if (resp.redirected) {
+            window.location = resp.url;
+            return null;
+          }
+          if (!resp.ok) {
+            window.location = url;
+            return null;
+          }
+          return resp.text();
+        })
+        .then(function (html) {
+          if (html === null) return;
+          body.innerHTML = html;
+          dialog.showModal();
+        })
+        .catch(function () {
+          // Repli si le pop-up echoue pour une raison ou une autre (reseau,
+          // session expiree...) : comportement d'avant, navigation directe.
+          window.location = url;
+        });
+    }
+
+    function closeEditModal() {
+      var dialog = document.getElementById('modal-editor');
+      if (dialog && dialog.open) dialog.close();
+    }
+
+    // Un clic sur le fond assombri (en dehors de la boite elle-meme) ferme
+    // aussi le pop-up, comme la croix ou la touche Echap (native a <dialog>).
+    document.addEventListener('DOMContentLoaded', function () {
+      var dialog = document.getElementById('modal-editor');
+      if (!dialog) return;
+      dialog.addEventListener('click', function (event) {
+        if (event.target === dialog) closeEditModal();
+      });
+    });
+
+    // Utilise par le lien "Annuler" de chaque formulaire d'edition : ferme
+    // le pop-up s'il est ouvert (et annule la navigation du lien), sinon
+    // laisse le lien naviguer normalement (acces direct a la page, sans
+    // pop-up - repli complet).
+    function closeEditModalIfOpen() {
+      var dialog = document.getElementById('modal-editor');
+      if (dialog && dialog.open) {
+        dialog.close();
+        return true;
+      }
+      return false;
+    }
+  </script>
 </body>
 </html>

@@ -68,7 +68,10 @@ def modifier(slot_id):
         flash("Créneau modifié.", "success")
         return redirect(url_for("library.pubs"))
 
-    return render_template("pub_slot_edit.html", slot=slot)
+    # ?modal=1 : voir library.py/_edit_view pour l'explication (pop-up de
+    # modification, base.html/openEditModal).
+    modal = request.args.get("modal") == "1"
+    return render_template("pub_slot_edit.html", slot=slot, modal=modal)
 
 
 @bp.route("/pubs/creneaux/<int:slot_id>/supprimer", methods=["POST"])

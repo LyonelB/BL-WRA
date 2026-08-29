@@ -134,12 +134,16 @@ def modifier(campaign_id):
     all_pubs = database.list_tracks("pub")
     all_slots = database.list_pub_slots()
     assigned_slot_ids = set(database.get_pub_campaign_slot_ids(campaign_id))
+    # ?modal=1 : voir library.py/_edit_view pour l'explication (pop-up de
+    # modification, base.html/openEditModal).
+    modal = request.args.get("modal") == "1"
     return render_template(
         "pub_campaign_edit.html",
         campaign=campaign,
         all_pubs=all_pubs,
         all_slots=all_slots,
         assigned_slot_ids=assigned_slot_ids,
+        modal=modal,
     )
 
 

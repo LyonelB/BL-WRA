@@ -147,8 +147,15 @@ def modifier(playlist_id):
 
     all_musiques = database.list_tracks("musique")
     assigned_ids = set(database.get_playlist_track_ids(playlist_id))
+    # ?modal=1 : voir library.py/_edit_view pour l'explication (pop-up de
+    # modification, base.html/openEditModal).
+    modal = request.args.get("modal") == "1"
     return render_template(
-        "playlist_edit.html", playlist=playlist, all_musiques=all_musiques, assigned_ids=assigned_ids
+        "playlist_edit.html",
+        playlist=playlist,
+        all_musiques=all_musiques,
+        assigned_ids=assigned_ids,
+        modal=modal,
     )
 
 

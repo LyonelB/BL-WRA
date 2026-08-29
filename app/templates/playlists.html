@@ -46,7 +46,7 @@
           </form>
         </td>
         <td class="row-actions">
-          <a href="{{ url_for('playlists.modifier', playlist_id=p.id) }}" class="btn btn-mini btn-secondary">Modifier</a>
+          <button type="button" class="btn btn-mini btn-secondary" onclick="openEditModal('{{ url_for('playlists.modifier', playlist_id=p.id) }}')">Modifier</button>
           <form method="post" action="{{ url_for('playlists.supprimer', playlist_id=p.id) }}" onsubmit="return confirm('Supprimer cette playlist ?');">
             <button type="submit" class="btn btn-mini btn-danger">Supprimer</button>
           </form>

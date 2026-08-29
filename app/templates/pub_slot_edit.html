@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "_modal_base.html" if modal else "base.html" %}
 {% block title %}Modifier — créneau{% endblock %}
 {% block content %}
 
@@ -24,7 +24,7 @@
     </label>
     <div class="row-actions" style="justify-content: flex-start; margin-top: 6px;">
       <button type="submit" class="btn btn-primary">Enregistrer</button>
-      <a href="{{ url_for('library.pubs') }}" class="btn btn-secondary">Annuler</a>
+      <a href="{{ url_for('library.pubs') }}" class="btn btn-secondary" onclick="return !closeEditModalIfOpen()">Annuler</a>
     </div>
   </form>
 </section>

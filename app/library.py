@@ -247,7 +247,14 @@ def _edit_view(category, track_id):
     extra["play_history"] = database.track_play_history(track["filename"])
     extra["play_count"] = database.track_play_count(track["filename"])
 
-    return render_template("library_edit.html", track=track, cfg=cfg, category=category, **extra)
+    # ?modal=1 : la page est chargee en arriere-plan par le pop-up de
+    # modification (voir base.html, openEditModal) plutot que navigee -
+    # dans ce cas le template rend juste le fragment de contenu (voir
+    # _modal_base.html), sans sidebar ni <head>.
+    modal = request.args.get("modal") == "1"
+    return render_template(
+        "library_edit.html", track=track, cfg=cfg, category=category, modal=modal, **extra
+    )
 
 
 @bp.route("/media/<category>/<path:filename>")

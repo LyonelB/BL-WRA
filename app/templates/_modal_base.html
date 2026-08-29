@@ -1,0 +1,9 @@
+{# Squelette minimal utilise par les pages "Modifier" quand elles sont
+   chargees dans le pop-up de modification (voir base.html : openEditModal
+   / _modal_base.html), a la place de base.html : uniquement le contenu du
+   bloc "content", sans sidebar ni <head> - c'est ce fragment qui est
+   injecte tel quel dans le <dialog> par le JavaScript, jamais servi comme
+   page complete a un navigateur. Un acces direct a l'URL d'edition (sans
+   JS, ou lien partage) continue de passer par base.html normalement, voir
+   le parametre "modal" ajoute a chaque vue de modification. #}
+{% block content %}{% endblock %}

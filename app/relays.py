@@ -119,7 +119,10 @@ def modifier(relay_id):
         _apply_relays_change("Serveur modifié")
         return redirect(url_for("settings.reglages"))
 
-    return render_template("relay_edit.html", relay=relay)
+    # ?modal=1 : voir library.py/_edit_view pour l'explication (pop-up de
+    # modification, base.html/openEditModal).
+    modal = request.args.get("modal") == "1"
+    return render_template("relay_edit.html", relay=relay, modal=modal)
 
 
 @bp.route("/reglages/relais/<int:relay_id>/supprimer", methods=["POST"])

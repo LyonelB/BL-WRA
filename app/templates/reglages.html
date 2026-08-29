@@ -274,7 +274,7 @@
           </form>
         </td>
         <td class="row-actions">
-          <a href="{{ url_for('relays.modifier', relay_id=r.id) }}" class="btn btn-mini btn-secondary">Modifier</a>
+          <button type="button" class="btn btn-mini btn-secondary" onclick="openEditModal('{{ url_for('relays.modifier', relay_id=r.id) }}')">Modifier</button>
           <form method="post" action="{{ url_for('relays.supprimer', relay_id=r.id) }}" onsubmit="return confirm('Supprimer ce serveur ?');">
             <button type="submit" class="btn btn-mini btn-danger">Supprimer</button>
           </form>

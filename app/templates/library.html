@@ -78,7 +78,7 @@
           {% endif %}
         </td>
         <td class="row-actions">
-          <a href="{{ url_for('library.' ~ cfg.url ~ '_modifier', track_id=t.id) }}" class="btn btn-mini btn-secondary">Modifier</a>
+          <button type="button" class="btn btn-mini btn-secondary" onclick="openEditModal('{{ url_for('library.' ~ cfg.url ~ '_modifier', track_id=t.id) }}')">Modifier</button>
           {% if show_jouer %}
           <form method="post" action="{{ url_for('library.' ~ cfg.url ~ '_jouer', track_id=t.id) }}">
             <button type="submit" class="btn btn-mini">Jouer maintenant</button>
@@ -169,7 +169,7 @@
         <td>{{ slot.time }}</td>
         <td>{{ slot.days | jours_creneau }}</td>
         <td class="row-actions">
-          <a href="{{ url_for('pub_slots.modifier', slot_id=slot.id) }}" class="btn btn-mini btn-secondary">Modifier</a>
+          <button type="button" class="btn btn-mini btn-secondary" onclick="openEditModal('{{ url_for('pub_slots.modifier', slot_id=slot.id) }}')">Modifier</button>
           <form method="post" action="{{ url_for('pub_slots.supprimer', slot_id=slot.id) }}" onsubmit="return confirm('Supprimer ce créneau ?');">
             <button type="submit" class="btn btn-mini btn-danger">Supprimer</button>
           </form>
@@ -248,7 +248,7 @@
           </form>
         </td>
         <td class="row-actions">
-          <a href="{{ url_for('pub_campaigns.modifier', campaign_id=c.id) }}" class="btn btn-mini btn-secondary">Modifier</a>
+          <button type="button" class="btn btn-mini btn-secondary" onclick="openEditModal('{{ url_for('pub_campaigns.modifier', campaign_id=c.id) }}')">Modifier</button>
           <form method="post" action="{{ url_for('pub_campaigns.supprimer', campaign_id=c.id) }}" onsubmit="return confirm('Supprimer cette planification ?');">
             <button type="submit" class="btn btn-mini btn-danger">Supprimer</button>
           </form>
