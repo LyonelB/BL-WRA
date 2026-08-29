@@ -223,6 +223,27 @@ code {
 .table th .sort-arrow { margin-left: 4px; font-size: 0.7rem; color: var(--accent); }
 .row-inactive { opacity: 0.45; }
 .row-actions { display: flex; gap: 6px; justify-content: flex-end; white-space: nowrap; }
+/* .row-actions sert aussi de derniere colonne "Modifier/Supprimer" dans
+   les tableaux (<td class="row-actions">). Y garder display:flex y est
+   invalide : ca sort la cellule du modele de tableau (elle n'est plus
+   display:table-cell), donc elle ne participe plus au calcul de hauteur
+   commun a toute la ligne - des qu'une cellule voisine est plus haute
+   (ex. plusieurs creneaux listes sur 2 lignes dans Pubs -> Planification),
+   la bordure du bas de CETTE colonne se retrouve plus haute que celle des
+   autres colonnes de la meme ligne : visuellement, une ligne de
+   separation "en moins" / desalignee sous Modifier/Supprimer par rapport
+   au reste de la ligne. On restaure donc explicitement table-cell ici et
+   on recree le meme rendu (boutons cote a cote, alignes a droite, sans
+   retour a la ligne) avec text-align + marges, qui eux respectent le
+   modele de tableau. */
+td.row-actions {
+  display: table-cell;
+  text-align: right;
+  gap: 0;
+}
+td.row-actions > * { margin-left: 6px; vertical-align: middle; }
+td.row-actions > *:first-child { margin-left: 0; }
+td.row-actions form { display: inline-block; }
 
 /* --- Forms -------------------------------------------------------- */
 
