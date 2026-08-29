@@ -1,11 +1,11 @@
 """
-Creneaux horaires de diffusion des pubs (page Pubs, section "Pubs
-planifiees" - voir library.html pour category == "pub").
+Creneaux horaires de diffusion des pubs (page Pubs, section "Creneaux").
 
-A chaque creneau actif correspond une heure, des jours de la semaine, et une
-liste de pubs qui passeront, l'une apres l'autre, a la fin du titre en cours
-ce jour-la (voir rotation._maybe_push_due_pub_slots). Remplace l'ancien
-reglage "une pub toutes les M minutes".
+Un creneau est purement le "quand" (heure + jours de la semaine) : depuis
+l'introduction des planifications (29/08, voir pub_campaigns.py), il ne
+porte plus directement de pubs - c'est une planification qui associe une
+pub a un ensemble de creneaux, pour une periode donnee (voir
+rotation._maybe_push_due_pub_slots pour le declenchement reel).
 """
 
 from flask import Blueprint, flash, redirect, render_template, request, url_for
@@ -17,16 +17,6 @@ bp = Blueprint("pub_slots", __name__)
 
 # 1=lundi ... 7=dimanche (datetime.isoweekday()), voir rotation.py
 VALID_DAYS = {"1", "2", "3", "4", "5", "6", "7"}
-
-
-def _parse_track_ids():
-    ids = []
-    for raw in request.form.getlist("track_ids"):
-        try:
-            ids.append(int(raw))
-        except ValueError:
-            continue
-    return ids
 
 
 def _parse_days():
@@ -50,7 +40,7 @@ def ajouter():
         flash("Sélectionnez au moins un jour de diffusion.", "error")
         return redirect(url_for("library.pubs"))
 
-    database.add_pub_slot(time_str, days_str, _parse_track_ids())
+    database.add_pub_slot(time_str, days_str)
     flash("Créneau ajouté.", "success")
     return redirect(url_for("library.pubs"))
 
@@ -74,17 +64,11 @@ def modifier(slot_id):
             flash("Sélectionnez au moins un jour de diffusion.", "error")
             return redirect(url_for("pub_slots.modifier", slot_id=slot_id))
 
-        database.update_pub_slot(slot_id, time_str, days_str, _parse_track_ids())
+        database.update_pub_slot(slot_id, time_str, days_str)
         flash("Créneau modifié.", "success")
         return redirect(url_for("library.pubs"))
 
-    # Toutes les pubs sont proposees (plus de filtre "active" manuel cote
-    # pubs depuis l'introduction du badge "Planifiee", voir library.py).
-    all_pubs = database.list_tracks("pub")
-    assigned_ids = set(database.get_pub_slot_track_ids(slot_id))
-    return render_template(
-        "pub_slot_edit.html", slot=slot, all_pubs=all_pubs, assigned_ids=assigned_ids
-    )
+    return render_template("pub_slot_edit.html", slot=slot)
 
 
 @bp.route("/pubs/creneaux/<int:slot_id>/supprimer", methods=["POST"])

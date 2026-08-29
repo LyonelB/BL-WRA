@@ -47,14 +47,15 @@ CATEGORY_CONFIG = {
     },
     "pub": {
         "dir_key": "PUBS_DIR", "url": "pubs", "label": "Pubs",
-        "hint": "Une pub \"planifiée\" est assignée à au moins un créneau actif ci-dessous - c'est ce qui détermine si elle sera diffusée, pas une case actif/inactif à part.",
+        "hint": "Une pub \"planifiée\" a au moins une planification active (voir la page Planification) qui l'associe à un créneau et couvre la date du jour - c'est ce qui détermine si elle sera diffusée, pas une case actif/inactif à part.",
         "show_jouer": True,
         # Pas de case "actif" sur la page de modification pour les pubs :
         # contrairement a musiques/jingles, le badge "Planifiee" est
-        # calcule (assignee a au moins un creneau actif, voir
-        # database.list_scheduled_pub_track_ids), pas un champ a cocher.
-        # Pour retirer une pub de la diffusion : la retirer de ses
-        # creneaux, ou supprimer le fichier.
+        # calcule (au moins une planification active qui couvre la date du
+        # jour et un creneau actif, voir database.list_scheduled_pub_track_ids
+        # et pub_campaigns.py), pas un champ a cocher.
+        # Pour retirer une pub de la diffusion : desactiver/supprimer ses
+        # planifications, ou supprimer le fichier.
         "editable_active": False,
     },
 }
@@ -116,11 +117,11 @@ def _list_view(category):
     elif category == "jingle":
         extra["jingle_every_n_titles"] = database.get_setting("jingle_every_n_titles", 4)
     elif category == "pub":
+        # Depuis le 29/08, un creneau (pub_slots) est pur heure+jours et ne
+        # porte plus de pubs : plus besoin de all_pubs ici, le picker de
+        # pubs par creneau a ete retire (voir page Planification, blueprint
+        # pub_campaigns, pour associer une pub a des creneaux).
         extra["pub_slots"] = database.list_pub_slots()
-        # Toutes les pubs sont proposees pour un creneau (plus de filtre
-        # "active" manuel cote pubs, voir scheduled_pub_ids ci-dessous et
-        # database.list_scheduled_pub_track_ids).
-        extra["all_pubs"] = database.list_tracks("pub")
         extra["scheduled_pub_ids"] = database.list_scheduled_pub_track_ids()
 
     return render_template(

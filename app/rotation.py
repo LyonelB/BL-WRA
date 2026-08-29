@@ -5,15 +5,17 @@ des notifications "nouveau titre" envoyees par Liquidsoap (radio.liq).
 Regle v2 :
   - un jingle toutes les N musiques (reglage jingle_every_n_titles, page
     Jingles)
-  - les pubs sont programmees a heure fixe ("creneaux", page Pubs -> Pubs
-    planifiees) plutot qu'a intervalle : a l'heure du creneau, on pousse
-    toutes les pubs cochees pour ce creneau, l'une apres l'autre, a la fin
-    du titre en cours (un creneau ne se declenche qu'une fois par jour)
+  - les pubs sont programmees a heure fixe ("creneaux", page Pubs) plutot
+    qu'a intervalle : a l'heure du creneau, on pousse toutes les pubs dont
+    une planification active (page Pubs -> Planification) couvre a la fois
+    ce creneau et la date du jour, l'une apres l'autre, a la fin du titre
+    en cours (un creneau ne se declenche qu'une fois par jour)
   - a chaque transition, priorite a la pub si un creneau est du, sinon au
     jingle si son compteur est atteint (un seul des deux par transition)
 
-Toute la config est modifiable a chaud depuis l'interface (table settings
-et table pub_slots) : pas besoin de redemarrer Liquidsoap ni l'appli.
+Toute la config est modifiable a chaud depuis l'interface (table settings,
+table pub_slots, table pub_campaigns) : pas besoin de redemarrer
+Liquidsoap ni l'appli.
 
 La categorie (musique/jingle/pub) de ce qui joue est desormais fournie
 directement par Liquidsoap dans le payload du webhook (voir radio.liq :
@@ -89,11 +91,12 @@ def _maybe_trigger_rotation(app):
 
 def _maybe_push_due_pub_slots(app, base_url):
     """
-    Creneaux horaires (Pubs -> Pubs planifiees) : des que l'heure d'un
-    creneau actif est passee et qu'il ne s'est pas encore declenche
-    aujourd'hui, on pousse toutes les pubs cochees pour ce creneau (encore
-    actives), dans l'ordre. Comme ce webhook n'arrive qu'entre deux
-    musiques, l'insertion attend bien la fin du titre en cours.
+    Creneaux horaires (page Pubs) : des que l'heure d'un creneau actif est
+    passee et qu'il ne s'est pas encore declenche aujourd'hui, on pousse
+    toutes les pubs dont une planification active (page Pubs ->
+    Planification) couvre ce creneau et englobe la date du jour, dans
+    l'ordre. Comme ce webhook n'arrive qu'entre deux musiques, l'insertion
+    attend bien la fin du titre en cours.
 
     Si le service a ete arrete pendant l'heure d'un ou plusieurs creneaux,
     ils se declenchent tous a la suite au prochain titre (pas de rattrapage
@@ -106,7 +109,7 @@ def _maybe_push_due_pub_slots(app, base_url):
 
     pushed_any = False
     for slot in database.due_pub_slots(now_hm, today, weekday):
-        for track in database.get_pub_slot_tracks(slot["id"]):
+        for track in database.get_due_slot_tracks(slot["id"], today):
             if _push(base_url, app.config["PUBS_DIR"], track, "pub"):
                 pushed_any = True
         database.mark_pub_slot_fired(slot["id"], today)

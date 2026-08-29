@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Modifier — créneau pub{% endblock %}
+{% block title %}Modifier — créneau{% endblock %}
 {% block content %}
 
 <div class="page-header">
@@ -19,18 +19,6 @@
           <input type="checkbox" name="days" value="{{ value }}" {{ "checked" if value in slot_days else "" }}>
           {{ label }}
         </label>
-        {% endfor %}
-      </div>
-    </label>
-    <label>Pubs à diffuser à ce créneau
-      <div class="checkbox-list">
-        {% for t in all_pubs %}
-        <label class="checkbox-list-item">
-          <input type="checkbox" name="track_ids" value="{{ t.id }}" {{ "checked" if t.id in assigned_ids else "" }}>
-          {{ t.title or t.filename }}
-        </label>
-        {% else %}
-        <p class="hint">Aucune pub disponible pour l'instant.</p>
         {% endfor %}
       </div>
     </label>

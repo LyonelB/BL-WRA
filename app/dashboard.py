@@ -30,7 +30,7 @@ def index():
     recent = database.recent_plays(limit=15)
     settings = database.get_all_settings()
     liquidsoap_ok = liquidsoap_client.ping(current_app.config["LIQUIDSOAP_API_URL"]) is not None
-    active_pub_slots = sum(1 for e in database.list_pub_slots() if e["slot"]["active"])
+    active_pub_slots = sum(1 for slot in database.list_pub_slots() if slot["active"])
     return render_template(
         "dashboard.html",
         counts=counts,

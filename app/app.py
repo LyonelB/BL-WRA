@@ -22,6 +22,7 @@ from settings_bp import bp as settings_bp
 from api import bp as api_bp
 from relays import bp as relays_bp
 from pub_slots import bp as pub_slots_bp
+from pub_campaigns import bp as pub_campaigns_bp
 from playlists import bp as playlists_bp
 from logs_bp import bp as logs_bp
 
@@ -84,6 +85,7 @@ def create_app():
     app.register_blueprint(api_bp)
     app.register_blueprint(relays_bp)
     app.register_blueprint(pub_slots_bp)
+    app.register_blueprint(pub_campaigns_bp)
     app.register_blueprint(playlists_bp)
     app.register_blueprint(logs_bp)
 

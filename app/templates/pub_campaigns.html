@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block title %}Planification — Pubs{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <h1>Planification</h1>
+  <span class="pill">{{ campaigns|length }} planification(s)</span>
+</div>
+
+<p class="hint">
+  Une planification associe <strong>une pub</strong> à une période de
+  validité (du ... au ...) et à un ou plusieurs
+  <a href="{{ url_for('library.pubs') }}">créneaux</a> : pendant cette
+  période, la pub passe à chacun des créneaux cochés, au milieu des autres
+  pubs planifiées sur le même créneau. Pour faire passer plusieurs pubs sur
+  un même créneau, créez une planification par pub avec ce créneau coché.
+  Désactivez une planification (sans la supprimer) pour suspendre
+  temporairement une pub sans perdre sa période ni ses créneaux.
+</p>
+
+<section class="card">
+  <table class="table">
+    <thead>
+      <tr><th>Pub</th><th>Période</th><th>Créneaux</th><th>Actif</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for entry in campaigns %}
+      {% set c = entry.campaign %}
+      <tr class="{{ '' if c.active else 'row-inactive' }}">
+        <td>
+          {% if entry.track %}
+            {{ entry.track.title or entry.track.filename }}
+          {% else %}
+            <span class="muted">Pub supprimée</span>
+          {% endif %}
+        </td>
+        {% set sd = c.start_date.split('-') %}
+        {% set ed = c.end_date.split('-') %}
+        <td>Du {{ sd[2] }}/{{ sd[1] }}/{{ sd[0] }} au {{ ed[2] }}/{{ ed[1] }}/{{ ed[0] }}</td>
+        <td>
+          {% if entry.slots %}
+            {% for s in entry.slots %}{{ s.time }} ({{ s.days | jours_creneau }}){% if not loop.last %}, {% endif %}{% endfor %}
+          {% else %}
+            <span class="muted">Aucun créneau</span>
+          {% endif %}
+        </td>
+        <td>
+          <form method="post" action="{{ url_for('pub_campaigns.activer', campaign_id=c.id) }}">
+            <button type="submit" class="toggle {{ 'toggle-on' if c.active else 'toggle-off' }}">
+              {{ "actif" if c.active else "inactif" }}
+            </button>
+          </form>
+        </td>
+        <td class="row-actions">
+          <a href="{{ url_for('pub_campaigns.modifier', campaign_id=c.id) }}" class="btn btn-mini btn-secondary">Modifier</a>
+          <form method="post" action="{{ url_for('pub_campaigns.supprimer', campaign_id=c.id) }}" onsubmit="return confirm('Supprimer cette planification ?');">
+            <button type="submit" class="btn btn-mini btn-danger">Supprimer</button>
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5" class="muted">Aucune planification pour l'instant : aucune pub ne sera diffusée.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <h2 style="margin-top: 22px;">Ajouter une planification</h2>
+  {% if all_pubs and all_slots %}
+  <form method="post" action="{{ url_for('pub_campaigns.ajouter') }}" class="settings-form settings-form-full">
+    <label>Pub
+      <select name="track_id" required>
+        <option value="" disabled selected>Choisir une pub</option>
+        {% for t in all_pubs %}
+        <option value="{{ t.id }}">{{ t.title or t.filename }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Période</label>
+    <div class="days-picker date-picker" style="align-items: center;">
+      <span>Du</span>
+      <input type="number" name="start_day" min="1" max="31" placeholder="JJ" required>
+      <span>/</span>
+      <input type="number" name="start_month" min="1" max="12" placeholder="MM" required>
+      <span>/</span>
+      <input type="number" name="start_year" min="2000" max="2100" placeholder="AAAA" required class="year">
+      <span>au</span>
+      <input type="number" name="end_day" min="1" max="31" placeholder="JJ" required>
+      <span>/</span>
+      <input type="number" name="end_month" min="1" max="12" placeholder="MM" required>
+      <span>/</span>
+      <input type="number" name="end_year" min="2000" max="2100" placeholder="AAAA" required class="year">
+    </div>
+    <label>Créneaux utilisés pendant cette période
+      <div class="checkbox-list">
+        {% for s in all_slots %}
+        <label class="checkbox-list-item">
+          <input type="checkbox" name="slot_ids" value="{{ s.id }}">
+          {{ s.time }} ({{ s.days | jours_creneau }})
+        </label>
+        {% endfor %}
+      </div>
+    </label>
+    <button type="submit" class="btn btn-primary">Créer la planification</button>
+  </form>
+  {% elif not all_pubs %}
+  <p class="hint">Ajoutez d'abord une pub depuis la page <a href="{{ url_for('library.pubs') }}">Pubs</a>.</p>
+  {% else %}
+  <p class="hint">Ajoutez d'abord un créneau depuis la page <a href="{{ url_for('library.pubs') }}">Pubs</a>.</p>
+  {% endif %}
+</section>
+{% endblock %}

@@ -66,6 +66,11 @@ CREATE TABLE IF NOT EXISTS relays (
     active INTEGER NOT NULL DEFAULT 1
 );
 
+-- Creneaux horaires purs (heure + jours de diffusion) : le "quand" de la
+-- diffusion des pubs, independant de toute pub particuliere depuis
+-- l'introduction des planifications (29/08, voir pub_campaigns plus bas -
+-- avant cette date, un creneau portait directement sa liste de pubs via
+-- l'ancienne table pub_slot_tracks, desormais abandonnee/repartie a zero).
 CREATE TABLE IF NOT EXISTS pub_slots (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     time TEXT NOT NULL,
@@ -77,13 +82,32 @@ CREATE TABLE IF NOT EXISTS pub_slots (
     last_fired_date TEXT NOT NULL DEFAULT ''
 );
 
-CREATE TABLE IF NOT EXISTS pub_slot_tracks (
-    slot_id INTEGER NOT NULL REFERENCES pub_slots(id) ON DELETE CASCADE,
+-- Planifications (29/08, page Pubs -> Planification) : le "quoi, pendant
+-- quand, sur quels creneaux" de la diffusion des pubs - troisieme brique,
+-- separee de la bibliotheque (ou l'on stocke les pubs) et des creneaux
+-- (ou l'on definit les heures) : une planification associe UNE pub a une
+-- periode de validite precise (start_date/end_date, "AAAA-MM-JJ", meme
+-- convention que playlists) et a l'ensemble des creneaux ou elle doit
+-- passer PENDANT cette periode. Plusieurs planifications peuvent partager
+-- le meme creneau (plusieurs pubs passent alors les unes a la suite des
+-- autres a ce creneau, voir rotation._maybe_push_due_pub_slots) et/ou se
+-- chevaucher dans le temps.
+CREATE TABLE IF NOT EXISTS pub_campaigns (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     track_id INTEGER NOT NULL REFERENCES tracks(id) ON DELETE CASCADE,
-    position INTEGER NOT NULL DEFAULT 0,
-    PRIMARY KEY (slot_id, track_id)
+    start_date TEXT NOT NULL,
+    end_date TEXT NOT NULL,
+    active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL
 );
-CREATE INDEX IF NOT EXISTS idx_pub_slot_tracks_slot ON pub_slot_tracks(slot_id);
+CREATE INDEX IF NOT EXISTS idx_pub_campaigns_track ON pub_campaigns(track_id);
+
+CREATE TABLE IF NOT EXISTS pub_campaign_slots (
+    campaign_id INTEGER NOT NULL REFERENCES pub_campaigns(id) ON DELETE CASCADE,
+    slot_id INTEGER NOT NULL REFERENCES pub_slots(id) ON DELETE CASCADE,
+    PRIMARY KEY (campaign_id, slot_id)
+);
+CREATE INDEX IF NOT EXISTS idx_pub_campaign_slots_slot ON pub_campaign_slots(slot_id);
 
 CREATE TABLE IF NOT EXISTS playlists (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -501,26 +525,16 @@ def set_relay_active(relay_id, active):
 
 
 # --------------------------------------------------------------------------
-# Creneaux horaires de diffusion des pubs (Pubs -> Pubs planifiees).
-# Remplace l'ancien reglage "une pub toutes les M minutes" : a l'heure du
-# creneau (une fois par jour), les pubs cochees pour ce creneau sont
-# poussees, l'une apres l'autre, a la fin du titre en cours.
+# Creneaux horaires de diffusion des pubs (Pubs -> Creneaux). Purement le
+# "quand" (heure + jours) depuis l'introduction des planifications (29/08,
+# voir plus bas) : un creneau ne porte plus directement de pubs, c'est une
+# planification qui associe une pub a un ensemble de creneaux, pour une
+# periode donnee.
 # --------------------------------------------------------------------------
 
 def list_pub_slots():
-    """Tous les creneaux, avec leurs pubs assignees (actives ou non - pour
-    que l'admin voie l'etat complet dans Reglages)."""
     db = get_db()
-    slots = db.execute("SELECT * FROM pub_slots ORDER BY time").fetchall()
-    result = []
-    for slot in slots:
-        tracks = db.execute(
-            "SELECT t.* FROM pub_slot_tracks st JOIN tracks t ON t.id = st.track_id "
-            "WHERE st.slot_id = ? ORDER BY st.position",
-            (slot["id"],),
-        ).fetchall()
-        result.append({"slot": slot, "tracks": tracks})
-    return result
+    return db.execute("SELECT * FROM pub_slots ORDER BY time").fetchall()
 
 
 def get_pub_slot(slot_id):
@@ -528,70 +542,21 @@ def get_pub_slot(slot_id):
     return db.execute("SELECT * FROM pub_slots WHERE id = ?", (slot_id,)).fetchone()
 
 
-def get_pub_slot_track_ids(slot_id):
-    """Pour pre-cocher le formulaire de modification (toutes les pubs
-    assignees, meme desactivees)."""
-    db = get_db()
-    rows = db.execute(
-        "SELECT track_id FROM pub_slot_tracks WHERE slot_id = ? ORDER BY position",
-        (slot_id,),
-    ).fetchall()
-    return [r["track_id"] for r in rows]
-
-
-def get_pub_slot_tracks(slot_id):
-    """Pour le declenchement reel : seulement les pubs encore actives."""
-    db = get_db()
-    return db.execute(
-        "SELECT t.* FROM pub_slot_tracks st JOIN tracks t ON t.id = st.track_id "
-        "WHERE st.slot_id = ? AND t.active = 1 ORDER BY st.position",
-        (slot_id,),
-    ).fetchall()
-
-
-def list_scheduled_pub_track_ids():
-    """Ensemble des id de pubs assignees a au moins un creneau actif (voir
-    pub_slots.active) - utilise pour le badge "Planifiee" en lecture seule
-    de la page Pubs (library.html). Contrairement a musiques/jingles, une
-    pub n'a plus de bascule actif/inactif manuelle depuis l'interface :
-    "planifiee" reflete uniquement son assignation reelle a un creneau, pas
-    un champ a cocher a part (voir aussi get_pub_slot_tracks, meme logique
-    au moment du declenchement reel)."""
-    db = get_db()
-    rows = db.execute(
-        "SELECT DISTINCT st.track_id FROM pub_slot_tracks st "
-        "JOIN pub_slots s ON s.id = st.slot_id WHERE s.active = 1"
-    ).fetchall()
-    return {r["track_id"] for r in rows}
-
-
-def _set_pub_slot_tracks(db, slot_id, track_ids):
-    db.execute("DELETE FROM pub_slot_tracks WHERE slot_id = ?", (slot_id,))
-    for pos, track_id in enumerate(track_ids):
-        db.execute(
-            "INSERT INTO pub_slot_tracks (slot_id, track_id, position) VALUES (?, ?, ?)",
-            (slot_id, track_id, pos),
-        )
-
-
-def add_pub_slot(time_str, days_str, track_ids):
+def add_pub_slot(time_str, days_str):
     db = get_db()
     cur = db.execute(
         "INSERT INTO pub_slots (time, days, active, last_fired_date) VALUES (?, ?, 1, '')",
         (time_str, days_str),
     )
-    slot_id = cur.lastrowid
-    _set_pub_slot_tracks(db, slot_id, track_ids)
     db.commit()
-    return slot_id
+    return cur.lastrowid
 
 
-def update_pub_slot(slot_id, time_str, days_str, track_ids):
+def update_pub_slot(slot_id, time_str, days_str):
     db = get_db()
     db.execute(
         "UPDATE pub_slots SET time = ?, days = ? WHERE id = ?", (time_str, days_str, slot_id)
     )
-    _set_pub_slot_tracks(db, slot_id, track_ids)
     db.commit()
 
 
@@ -628,6 +593,133 @@ def mark_pub_slot_fired(slot_id, today):
     db = get_db()
     db.execute("UPDATE pub_slots SET last_fired_date = ? WHERE id = ?", (today, slot_id))
     db.commit()
+
+
+# --------------------------------------------------------------------------
+# Planifications (Pubs -> Planification, 29/08) : troisieme brique du
+# systeme de pubs, separee de la bibliotheque (le stock de pubs) et des
+# creneaux (les heures possibles) - une planification associe UNE pub a une
+# periode de validite (start_date/end_date, "AAAA-MM-JJ", comme playlists)
+# et a l'ensemble des creneaux ou elle doit passer PENDANT cette periode.
+# Remplace l'ancienne assignation directe pub<->creneau (table
+# pub_slot_tracks, abandonnee - voir le commentaire sur pub_slots plus
+# haut) : sans planification active couvrant la date du jour, un creneau
+# qui se declenche ne pousse plus aucune pub (voir get_due_slot_tracks,
+# utilisee par rotation._maybe_push_due_pub_slots).
+# --------------------------------------------------------------------------
+
+def list_pub_campaigns():
+    """Toutes les planifications, dans l'ordre de creation, avec la pub et
+    les creneaux assignes (pour l'affichage sur la page Planification)."""
+    db = get_db()
+    campaigns = db.execute("SELECT * FROM pub_campaigns ORDER BY id").fetchall()
+    result = []
+    for c in campaigns:
+        track = db.execute("SELECT * FROM tracks WHERE id = ?", (c["track_id"],)).fetchone()
+        slots = db.execute(
+            "SELECT s.* FROM pub_campaign_slots pcs JOIN pub_slots s ON s.id = pcs.slot_id "
+            "WHERE pcs.campaign_id = ? ORDER BY s.time",
+            (c["id"],),
+        ).fetchall()
+        result.append({"campaign": c, "track": track, "slots": slots})
+    return result
+
+
+def get_pub_campaign(campaign_id):
+    db = get_db()
+    return db.execute("SELECT * FROM pub_campaigns WHERE id = ?", (campaign_id,)).fetchone()
+
+
+def get_pub_campaign_slot_ids(campaign_id):
+    """Pour pre-cocher le formulaire de modification."""
+    db = get_db()
+    rows = db.execute(
+        "SELECT slot_id FROM pub_campaign_slots WHERE campaign_id = ?", (campaign_id,)
+    ).fetchall()
+    return [r["slot_id"] for r in rows]
+
+
+def _set_pub_campaign_slots(db, campaign_id, slot_ids):
+    db.execute("DELETE FROM pub_campaign_slots WHERE campaign_id = ?", (campaign_id,))
+    for slot_id in slot_ids:
+        db.execute(
+            "INSERT OR IGNORE INTO pub_campaign_slots (campaign_id, slot_id) VALUES (?, ?)",
+            (campaign_id, slot_id),
+        )
+
+
+def add_pub_campaign(track_id, start_date, end_date, slot_ids):
+    db = get_db()
+    cur = db.execute(
+        "INSERT INTO pub_campaigns (track_id, start_date, end_date, active, created_at) "
+        "VALUES (?, ?, ?, 1, ?)",
+        (track_id, start_date, end_date, _now()),
+    )
+    campaign_id = cur.lastrowid
+    _set_pub_campaign_slots(db, campaign_id, slot_ids)
+    db.commit()
+    return campaign_id
+
+
+def update_pub_campaign(campaign_id, track_id, start_date, end_date, slot_ids):
+    db = get_db()
+    db.execute(
+        "UPDATE pub_campaigns SET track_id = ?, start_date = ?, end_date = ? WHERE id = ?",
+        (track_id, start_date, end_date, campaign_id),
+    )
+    _set_pub_campaign_slots(db, campaign_id, slot_ids)
+    db.commit()
+
+
+def delete_pub_campaign(campaign_id):
+    db = get_db()
+    db.execute("DELETE FROM pub_campaigns WHERE id = ?", (campaign_id,))
+    db.commit()
+
+
+def set_pub_campaign_active(campaign_id, active):
+    db = get_db()
+    db.execute(
+        "UPDATE pub_campaigns SET active = ? WHERE id = ?", (1 if active else 0, campaign_id)
+    )
+    db.commit()
+
+
+def get_due_slot_tracks(slot_id, today):
+    """Pubs a pousser pour ce creneau AUJOURD'HUI ("today", "AAAA-MM-JJ") :
+    celles de toutes les planifications actives dont la periode couvre la
+    date du jour et qui incluent ce creneau (voir pub_campaign_slots).
+    Plusieurs planifications peuvent inclure le meme creneau : leurs pubs
+    passent alors les unes a la suite des autres, dans l'ordre de creation
+    des planifications (voir rotation._maybe_push_due_pub_slots)."""
+    db = get_db()
+    return db.execute(
+        "SELECT t.* FROM pub_campaign_slots pcs "
+        "JOIN pub_campaigns c ON c.id = pcs.campaign_id "
+        "JOIN tracks t ON t.id = c.track_id "
+        "WHERE pcs.slot_id = ? AND c.active = 1 AND c.start_date <= ? AND c.end_date >= ? "
+        "ORDER BY c.id",
+        (slot_id, today, today),
+    ).fetchall()
+
+
+def list_scheduled_pub_track_ids():
+    """Ensemble des id de pubs actuellement "planifiees" : assignees a au
+    moins une planification active dont la periode couvre la date du jour
+    ET qui inclut au moins un creneau lui-meme actif - utilise pour le
+    badge "Planifiee" en lecture seule de la page Pubs (library.html).
+    Reflete si la pub sera reellement diffusee aujourd'hui, pas seulement
+    si une planification existe quelque part dans le temps."""
+    db = get_db()
+    today = datetime.now().strftime("%Y-%m-%d")
+    rows = db.execute(
+        "SELECT DISTINCT c.track_id FROM pub_campaigns c "
+        "JOIN pub_campaign_slots pcs ON pcs.campaign_id = c.id "
+        "JOIN pub_slots s ON s.id = pcs.slot_id "
+        "WHERE c.active = 1 AND s.active = 1 AND c.start_date <= ? AND c.end_date >= ?",
+        (today, today),
+    ).fetchall()
+    return {r["track_id"] for r in rows}
 
 
 # --------------------------------------------------------------------------

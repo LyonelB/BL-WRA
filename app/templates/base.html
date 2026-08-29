@@ -17,7 +17,8 @@
       <a href="{{ url_for('library.bibliotheque') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('library.bibliotheque') }}">Bibliothèque</a>
       <a href="{{ url_for('playlists.index') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('playlists.') }}">Playlists</a>
       <a href="{{ url_for('library.jingles') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('library.jingles') }}">Jingles</a>
-      <a href="{{ url_for('library.pubs') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('library.pubs') }}">Pubs</a>
+      <a href="{{ url_for('library.pubs') }}" class="{{ 'active' if request.endpoint and (request.endpoint.startswith('library.pubs') or request.endpoint.startswith('pub_slots.')) }}">Pubs</a>
+      <a href="{{ url_for('pub_campaigns.index') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('pub_campaigns.') }}">Planification</a>
       <a href="{{ url_for('settings.reglages') }}" class="{{ 'active' if request.endpoint == 'settings.reglages' }}">Réglages</a>
       <a href="{{ url_for('logs.logs_page') }}" class="{{ 'active' if request.endpoint and request.endpoint.startswith('logs.') }}">Logs</a>
       <div class="sidebar-footer">

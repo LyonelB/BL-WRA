@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Modifier — planification{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <h1>Modifier la planification</h1>
+</div>
+
+<section class="card">
+  <form method="post" class="settings-form settings-form-full">
+    <label>Pub
+      <select name="track_id" required>
+        {% for t in all_pubs %}
+        <option value="{{ t.id }}" {{ "selected" if t.id == campaign.track_id else "" }}>{{ t.title or t.filename }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Période</label>
+    {% set start_parts = campaign.start_date.split('-') %}
+    {% set end_parts = campaign.end_date.split('-') %}
+    <div class="days-picker date-picker" style="align-items: center;">
+      <span>Du</span>
+      <input type="number" name="start_day" min="1" max="31" value="{{ start_parts[2]|int }}" required>
+      <span>/</span>
+      <input type="number" name="start_month" min="1" max="12" value="{{ start_parts[1]|int }}" required>
+      <span>/</span>
+      <input type="number" name="start_year" min="2000" max="2100" value="{{ start_parts[0]|int }}" required class="year">
+      <span>au</span>
+      <input type="number" name="end_day" min="1" max="31" value="{{ end_parts[2]|int }}" required>
+      <span>/</span>
+      <input type="number" name="end_month" min="1" max="12" value="{{ end_parts[1]|int }}" required>
+      <span>/</span>
+      <input type="number" name="end_year" min="2000" max="2100" value="{{ end_parts[0]|int }}" required class="year">
+    </div>
+    <label>Créneaux utilisés pendant cette période
+      <div class="checkbox-list">
+        {% for s in all_slots %}
+        <label class="checkbox-list-item">
+          <input type="checkbox" name="slot_ids" value="{{ s.id }}" {{ "checked" if s.id in assigned_slot_ids else "" }}>
+          {{ s.time }} ({{ s.days | jours_creneau }})
+        </label>
+        {% else %}
+        <p class="hint">Aucun créneau disponible pour l'instant.</p>
+        {% endfor %}
+      </div>
+    </label>
+    <div class="row-actions" style="justify-content: flex-start; margin-top: 6px;">
+      <button type="submit" class="btn btn-primary">Enregistrer</button>
+      <a href="{{ url_for('pub_campaigns.index') }}" class="btn btn-secondary">Annuler</a>
+    </div>
+  </form>
+</section>
+{% endblock %}
